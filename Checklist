@@ -1,0 +1,6 @@
+Stuff we need right now:
+1. accelerameter math and code
+  a. We need to balance on a teetertoter.
+  b. Right now we are importing 
+    edu.wpi.first.wpilibj.interfaces.Accelerometer;
+    
