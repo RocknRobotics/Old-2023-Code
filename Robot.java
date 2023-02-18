@@ -1,3 +1,4 @@
+
 /*
   This is catastrophically poorly written code for the sake of being easy to follow
   If you know what the word "refactor" means, you should refactor this code
@@ -32,6 +33,9 @@ import edu.wpi.first.cscore.VideoMode.PixelFormat;
 import edu.wpi.first.wpilibj.BuiltInAccelerometer;
 import edu.wpi.first.wpilibj.interfaces.Accelerometer;
 
+//Potentiometer
+import edu.wpi.first.wpilibj.AnalogPotentiometer;
+
 //timer
 import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj.Timer;
@@ -58,22 +62,26 @@ public class Robot extends TimedRobot {
   CANSparkMax armActuator = new CANSparkMax(7, MotorType.kBrushless);
 
   //Pneumatics
-  
   DoubleSolenoid clawSolenoid1 = new DoubleSolenoid(1, PneumaticsModuleType.CTREPCM, 2, 3);
   DoubleSolenoid clawSolenoid2 = new DoubleSolenoid(2, PneumaticsModuleType.CTREPCM, 1, 0);
   
+
   // accelerometer
   Accelerometer accelerometer = new BuiltInAccelerometer();
-  boolean stableTeeter = false;
 
-  PS4Controller ps1 = new PS4Controller(0);// drive controller
+  //Potentiometer
+  AnalogPotentiometer armPotentiometer = new AnalogPotentiometer(0);
+
+  //Controller
+  PS4Controller ps1 = new PS4Controller(0);
+
+  //Camera
+  Thread m_visionThread;
 
   double autoStart = 0;
   boolean goForAuto = false;
   boolean fast = false;
-  // camera
 
-  Thread m_visionThread;
 
   /**
    * This function is run when the robot is first started up and should be used
