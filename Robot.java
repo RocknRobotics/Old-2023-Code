@@ -85,16 +85,25 @@ public class Robot extends TimedRobot {
   boolean goForAuto = false;
   boolean fast = false;
 
- //Station (starting position)
+ //Station (starting position) and cone/cube
   int station = -1;
+
 
   //Finals
   //Used for teeter totter balancing
   final double accelProportion = 1.0;
-  //Timestamp that it takes the robot to drive back to a new piece
+  //Time that it takes the robot to drive back to a new piece
   final double autoBackUpTime = 0.0;
-  //Timestamp for the robot to turn around so it can grab a piece
-  final double turnTime = 0.0;
+  //Time that it takes the robot to drive back to a new piece from Station 2
+  final double autoBackUpTime2 = 0.0;
+  //Time for the robot to turn around so it can grab a piece
+  final double turnTime =  0.0;
+  //Time for robot to orient towards the teeter totter
+  final double teeterTurnTime = 0.0;
+  //Time for the robot to drive backwards towards the teeter totter
+  final double teeterDriveTime = 0.0;
+  //Time stamp for the robot to line up to not take up all the space on the teeter totter
+  final double teeterOrientTime = 0.0;
 
 
   /**
@@ -135,6 +144,9 @@ public class Robot extends TimedRobot {
     SmartDashboard.putBoolean("Station 2", true);
     //Right far end
     SmartDashboard.putBoolean("Station 3", true);
+    //Cone or Cube to pick up
+    SmartDashboard.putBoolean("Cone", true);
+    SmartDashboard.putBoolean("Cube", true);
 
   }
 
@@ -152,7 +164,7 @@ public class Robot extends TimedRobot {
       driveLeftA.set(-1);
       driveLeftB.follow(driveLeftA);
       driveRightA.follow(driveLeftA);
-      driveRightB.follow(driveRightA);
+      driveRightB.follow(driveLeftA);
 
       while(Timer.getFPGATimestamp() - autoStart <= autoBackUpTime) {}
 
@@ -161,18 +173,103 @@ public class Robot extends TimedRobot {
       driveRightA.set(-1);
       driveLeftB.follow(driveRightA);
 
-      while(Timer.getFPGATimestamp() - autoStart <= turnTime) {}
+      while(Timer.getFPGATimestamp() - autoStart <= turnTime + autoBackUpTime) {}
       
-      /**
-       * Grab piece code
-       */
+      if(SmartDashboard.getBoolean("Cone", true)) {
+        grabCone();
+      } else if(SmartDashboard.getBoolean("Cube", true)) {
+        grabCube();
+      }
 
+      driveLeftA.set(-1);
+      driveLeftB.follow(driveLeftA);
+      driveRightA.set(0);
+      driveRightB.follow(driveRightA);
+
+      while(Timer.getFPGATimestamp() - autoStart <= teeterTurnTime + turntime + autoBackUpTime) {}
        
+      driveLeftA.set(-1);
+      driveLeftB.follow(driveLeftA);
+      driveRightA.follow(driveLeftA);
+      driveRightB.follow(driveLeftA);
 
+      while(Timer.getFPGATimestamp() - autoStart <= teeterDriveTime + teeterTurnTime + turnTime + autoBackUpTime) {}
+
+      driveLeftA.set(0);
+      driveLeftB.follow(driveLeftA);
+      driveRightA.set(-1);
+      driveRightB.follow(driveRightA);
+
+       while(Timer.getFPGATimestamp() - autoStart <= teeterOrientTime + teeterDriveTime + teeterTurnTime + turnTime + autoBackUpTime) {}
     } else if(SmartDashboard.getBoolean("Station 2", true)) {
+      scoreCone();
 
+      //Something something maybe 1 instead of -1 I dunno
+      driveLeftA.set(-1);
+      driveLeftB.follow(driveLeftA);
+      driveRightA.follow(driveLeftA);
+      driveRightB.follow(driveLeftA);
+
+      while(Timer.getFPGATimestamp - autoStart <= autoBackUptime2) {}
+
+      driveLeftA.set(0);
+      driveLeftB.follow(driveLeftA);
+      driveRightA.set(-1);
+      driveRightB.follow(driveRightA);
+
+      if(SmartDashboard.getBoolean("Cone", true)) {
+        grabCone();
+      } else if(SmartDashboard.getBoolean("Cube", true)) {
+        grabCube();
+      }
+
+      while(Timer.getFPGATimestamp - autoStart <= turnTime + autoBackUpTime2) {}
+
+      
     } else if(SmartDashboard.getBoolean("Station 3", true)) {
+      scoreCone();
 
+      //This and other instances of -1 drive power might have to be changed to 1
+      driveRightA.set(-1);
+      driveRightB.follow(driveRightA);
+      driveLeftA.follow(driveRightA);
+      driveLeftB.follow(driveRightA);
+
+      while(Timer.getFPGATimestamp() - autoStart <= autoBackUpTime) {}
+
+      driveRightA.set(0);
+      driveRightB.follow(driveRightA);
+      driveLeftA.set(-1);
+      driveLeftB.follow(driveLeftA);
+
+      while(Timer.getFPGATimestamp() - autoStart <= turnTime + autoBackUpTime) {}
+      
+      if(SmartDashboard.getBoolean("Cone", true)) {
+        grabCone();
+      } else if(SmartDashboard.getBoolean("Cube", true)) {
+        grabCube();
+      }
+
+       driveRightA.set(-1);
+       driveRightB.follow(driveRightA);
+       driveLeftA.set(0);
+       driveLeftB.set(driveLeftA);
+
+       while(Timer.getFPGATimestamp() - autoStart <= teeterTurnTime + turnTime + autoBackUpTime) {}
+
+       driveRightA.set(-1);
+       driveRightB.follow(driveRightA);
+       driveLeftA.follow(driveRightA);
+       driveLeftB.follow(driveRightA);
+
+       while(Timer.getFPGATimestamp() - autoStart <= teeterDriveTime + teeterTurnTime + turnTime + autoBackUpTime) {}
+
+       driveRightA.set(0);
+       driveRightB.follow(driveRightA);
+       driveLeftA.set(-1);
+       driveLeftB.follow(driveLeftA);
+
+       while(Timer.getFPGATimestamp() - autoStart <= teeterOrientTime + teeterDriveTime + teeterTurnTime + turnTime + autoBackUpTime) {}
     }
   }
 
@@ -182,11 +279,11 @@ public class Robot extends TimedRobot {
     if (goForAuto) {
 
       // series of timed events making up the flow of auto
-      if (Timer.getFPGATimestamp() - autoStart < 4) {
+      if (Timer.getFGATimeStamp() - autoStart < 4) {
         // spit out the ball for three seconds
         // intake.set(ControlMode.PercentOutput, -1);
 
-      } else if (Timer.getFPGATimestamp() - autoStart < 7) {
+      } else if (Timer.getFGATimeStamp() - autoStart < 7) {
         // stop spitting out the ball and drive backwards *slowly* for three seconds
         // intake.set(ControlMode.PercentOutput, 0);
 
@@ -244,7 +341,7 @@ public class Robot extends TimedRobot {
     driveRightA.set(driveRightPower / 2);
     driveRightB.follow(driveRightA);
 
-    if(Timer.getFPGATimestamp() - autoStart >= 215) {
+    if(Timer.getFPGATimestamp() - autoStart >= 135) {
       //Maybe this needs to be getZ instead of getX
       driveLeftA.set(accelProportion * -1 * accelerometer.getX());
       driveLeftB.follow(driveLeftA);
@@ -262,8 +359,6 @@ public class Robot extends TimedRobot {
     driveLeftB.set(0);
     driveRightA.set(0);
     driveRightB.set(0);
-    armActuator.set(0);
-    armExtension.set(0);
     // intake.set(ControlMode.PercentOutput, 0);
   }
 
@@ -272,5 +367,11 @@ public class Robot extends TimedRobot {
   }
   public void scoreCube() {
     //Code for scoring a cube
+  }
+  public void grabCone() {
+    //I'm Kevin and I'm difficult
+  }
+  public void grabCube() {
+    //Oh boohoo I'm going to cry
   }
 }
