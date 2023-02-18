@@ -1,4 +1,3 @@
-
 /*
   This is catastrophically poorly written code for the sake of being easy to follow
   If you know what the word "refactor" means, you should refactor this code
@@ -63,19 +62,17 @@ public class Robot extends TimedRobot {
   DoubleSolenoid clawSolenoid1 = new DoubleSolenoid(1, PneumaticsModuleType.CTREPCM, 2, 3);
   DoubleSolenoid clawSolenoid2 = new DoubleSolenoid(2, PneumaticsModuleType.CTREPCM, 1, 0);
   
-
   // accelerometer
   Accelerometer accelerometer = new BuiltInAccelerometer();
+  boolean stableTeeter = false;
 
-
-  //Controller
-  PS4Controller ps1 = new PS4Controller(0);
+  PS4Controller ps1 = new PS4Controller(0);// drive controller
 
   double autoStart = 0;
   boolean goForAuto = false;
   boolean fast = false;
-
   // camera
+
   Thread m_visionThread;
 
   /**
@@ -190,6 +187,15 @@ public class Robot extends TimedRobot {
     driveLeftB.follow(driveLeftA);
     driveRightA.set(driveRightPower / 2);
     driveRightB.follow(driveRightA);
+
+    if(Timer.getFPGATimestamp() >= 215) {
+      final double accelProportion = 1.0;
+      //Maybe this needs to be getY instead of getX
+      driveLeftA.set(accelProportion * -1 * accelerometer.getX());
+      driveLeftB.follow(driveLeftA);
+      driveRightA.follow(driveLeftA);
+      driveRightB.follow(driveRightB);
+    }
   }
 
   @Override
@@ -203,5 +209,4 @@ public class Robot extends TimedRobot {
     driveRightB.set(0);
     // intake.set(ControlMode.PercentOutput, 0);
   }
-
 }
