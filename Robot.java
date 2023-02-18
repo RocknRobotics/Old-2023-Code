@@ -80,18 +80,6 @@ public class Robot extends TimedRobot {
 
   //Camera
   Thread m_visionThread;
-  //Dont know if works
-  
-//   thread = new VisionThread(camera, new GripPipeline(), pipeline -> {
-//   if (!pipelie.filterContoursOutput().isEmpty()) {
-//     Rect r = Imgproc.boundingRect(pipeline.filterContoursOutput().get(0));
-//     synchronized (imgLock) {
-//         centerX = r.x + (r.width / 2);
-//         System.out.println(r.width);
-//     }
-//   }
-// });
-  
 
   double autoStart = 0;
   boolean goForAuto = false;
@@ -108,12 +96,14 @@ public class Robot extends TimedRobot {
   final double autoBackUpTime = 0.0;
   //Time that it takes the robot to drive back to a new piece from Station 2
   final double autoBackUpTime2 = 0.0;
-  //Time for the robot to turn around so it can grab a piece
+  //Time for the robot to turn around so it can grab a piece---Should be the same for all stations
   final double turnTime =  0.0;
   //Time for robot to orient towards the teeter totter
   final double teeterTurnTime = 0.0;
   //Time for the robot to drive backwards towards the teeter totter
   final double teeterDriveTime = 0.0;
+  //Station 2 code
+  final double teeterDriveTime2 = 0.0;
   //Time stamp for the robot to line up to not take up all the space on the teeter totter
   final double teeterOrientTime = 0.0;
 
@@ -151,14 +141,14 @@ public class Robot extends TimedRobot {
 
     //Station number---All start in front of a cone stand (for now)
     //Left far end
-    SmartDashboard.putBoolean("Station 1", true);
+    SmartDashboard.putBoolean("Station 1", false);
     //Middle
-    SmartDashboard.putBoolean("Station 2", true);
+    SmartDashboard.putBoolean("Station 2", false);
     //Right far end
-    SmartDashboard.putBoolean("Station 3", true);
+    SmartDashboard.putBoolean("Station 3", false);
     //Cone or Cube to pick up
-    SmartDashboard.putBoolean("Cone", true);
-    SmartDashboard.putBoolean("Cube", true);
+    SmartDashboard.putBoolean("Cone", false);
+    SmartDashboard.putBoolean("Cube", false);
 
   }
 
@@ -213,6 +203,7 @@ public class Robot extends TimedRobot {
       driveRightB.follow(driveRightA);
 
        while(Timer.getFPGATimestamp() - autoStart <= teeterOrientTime + teeterDriveTime + teeterTurnTime + turnTime + autoBackUpTime) {}
+       
     } else if(SmartDashboard.getBoolean("Station 2", true)) {
       scoreCone();
 
@@ -237,7 +228,13 @@ public class Robot extends TimedRobot {
 
       while(Timer.getFPGATimestamp() - autoStart <= turnTime + autoBackUpTime2) {}
 
-      
+      driveLeftA.set(-1);
+      driveLeftB.follow(driveLeftA);
+      driveRightA.follow(driveLeftA);
+      driveRightB.follow(driveLeftA);
+
+      while(Timer.getFPGATimestamp() - autoStart <= teeterDriveTime2 + turnTime + autoBackUpTime2) {}
+
     } else if(SmartDashboard.getBoolean("Station 3", true)) {
       scoreCone();
 
@@ -282,6 +279,23 @@ public class Robot extends TimedRobot {
        driveLeftB.follow(driveLeftA);
 
        while(Timer.getFPGATimestamp() - autoStart <= teeterOrientTime + teeterDriveTime + teeterTurnTime + turnTime + autoBackUpTime) {}
+    }
+
+    double tempTime = Timer.getFPGATimestamp();
+
+    driveLeftA.set(-1);
+    driveLeftB.follow(driveLeftA);
+    driveRightA.follow(driveLeftA);
+    driveRightB.follow(driveLeftA);
+
+    while(Timer.getFPGATimestamp() - tempTime <= onTeeterTime) {}
+
+    if(Timer.getFPGATimestamp() - autoStart <= 15) {
+      //Maybe this needs to be getZ instead of getX
+      driveLeftA.set(accelProportion * -1 * accelerometer.getX());
+      driveLeftB.follow(driveLeftA);
+      driveRightA.follow(driveLeftA);
+      driveRightB.follow(driveRightB);
     }
   }
 
@@ -371,8 +385,6 @@ public class Robot extends TimedRobot {
     driveLeftB.set(0);
     driveRightA.set(0);
     driveRightB.set(0);
-    armActuator.set(0);
-    armExtension.set(0);
     // intake.set(ControlMode.PercentOutput, 0);
   }
 
