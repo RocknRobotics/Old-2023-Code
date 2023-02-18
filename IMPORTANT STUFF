@@ -9,7 +9,7 @@ Please add stuff I missed.
 
 INPUTS:
   1. accelerometer math and code ✓
-    a. We need to balance on a teetertoter.
+    a. We need to balance on a teetertoter. ✓
     b. Right now we are importing:
       edu.wpi.first.wpilibj.interfaces.Accelerometer;
       edu.wpi.first.wpilibj.BuiltInAccelerometer;
@@ -60,7 +60,7 @@ OUTPUTS:
     
 
 AUTOTOMOUS:
-  1. we have literally nothing in auto. Someone needs to take charge of this as it would be better for one person to work on it. 
+  1. we have literally nothing in auto. Someone needs to take charge of this as it would be better for one person to work on it. ✓
   2. However, this means you need to know how all the outputs and inputs work.
   3. If you decide to work on this, please share your ideas:
     Kevin D: I think we should just get movement points and docking points and ignore putting a cone on unless our teammates can dock. Putting on a cone or cube
