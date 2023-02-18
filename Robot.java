@@ -61,6 +61,9 @@ public class Robot extends TimedRobot {
   //Linear actuator
   CANSparkMax armActuator = new CANSparkMax(7, MotorType.kBrushless);
 
+  //Arm Extension 
+  CANSparkMax armExtension = new CANSparkMax(13, MotorType.kBrushless);
+
   //Pneumatics
   DoubleSolenoid clawSolenoid1 = new DoubleSolenoid(1, PneumaticsModuleType.CTREPCM, 2, 3);
   DoubleSolenoid clawSolenoid2 = new DoubleSolenoid(2, PneumaticsModuleType.CTREPCM, 1, 0);
