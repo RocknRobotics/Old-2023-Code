@@ -8,49 +8,74 @@ package frc.robot;
 
 import java.io.OutputStream;
 
+//Motors
 import com.revrobotics.CANSparkMax;
 import com.revrobotics.CANSparkMax.IdleMode;
 import com.revrobotics.CANSparkMaxLowLevel.MotorType;
 
+//Pneumatics
+import edu.wpi.first.wpilibj.DoubleSolenoid;
+
+//Images
 import org.opencv.core.Mat;
 import org.opencv.core.Point;
 import org.opencv.core.Scalar;
 import org.opencv.imgproc.Imgproc;
 
+//Camera
 import edu.wpi.first.cameraserver.CameraServer;
 import edu.wpi.first.cscore.CvSink;
 import edu.wpi.first.cscore.CvSource;
 import edu.wpi.first.cscore.UsbCamera;
 import edu.wpi.first.cscore.VideoMode.PixelFormat;
-import edu.wpi.first.math.controller.PIDController;
-import edu.wpi.first.util.sendable.Sendable;
+
+//Accelerometer
 import edu.wpi.first.wpilibj.BuiltInAccelerometer;
+import edu.wpi.first.wpilibj.interfaces.Accelerometer;
+
+//timer
 import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.GenericHID.RumbleType;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+
+//Controller
 import edu.wpi.first.wpilibj.PS4Controller;
-import edu.wpi.first.wpilibj.interfaces.Accelerometer;
+import edu.wpi.first.wpilibj.PneumaticsModuleType;
+import edu.wpi.first.math.controller.PIDController;
+import edu.wpi.first.util.sendable.Sendable;
 
 public class Robot extends TimedRobot {
 
   // Definitions for the hardware. Change this if you change what stuff you have
   // plugged in
-  // drive
+  // drive motors
   CANSparkMax driveLeftA = new CANSparkMax(3, MotorType.kBrushless);
   CANSparkMax driveLeftB = new CANSparkMax(1, MotorType.kBrushless);
   CANSparkMax driveRightA = new CANSparkMax(4, MotorType.kBrushless);
   CANSparkMax driveRightB = new CANSparkMax(2, MotorType.kBrushless);
+
+  //Linear actuator
+  CANSparkMax armActuator = new CANSparkMax(7, MotorType.kBrushless);
+
+  //Pneumatics
+  
+  DoubleSolenoid clawSolenoid1 = new DoubleSolenoid(1, PneumaticsModuleType.CTREPCM, 2, 3);
+  DoubleSolenoid clawSolenoid2 = new DoubleSolenoid(2, PneumaticsModuleType.CTREPCM, 1, 0);
+  
+
   // accelerometer
   Accelerometer accelerometer = new BuiltInAccelerometer();
 
-  PS4Controller ps1 = new PS4Controller(0);// drive controller
+
+  //Controller
+  PS4Controller ps1 = new PS4Controller(0);
 
   double autoStart = 0;
   boolean goForAuto = false;
   boolean fast = false;
-  // camera
 
+  // camera
   Thread m_visionThread;
 
   /**
@@ -180,4 +205,3 @@ public class Robot extends TimedRobot {
   }
 
 }
-
