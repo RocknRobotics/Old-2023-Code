@@ -186,7 +186,7 @@ public class Robot extends TimedRobot {
       driveRightA.set(0);
       driveRightB.follow(driveRightA);
 
-      while(Timer.getFPGATimestamp() - autoStart <= teeterTurnTime + turntime + autoBackUpTime) {}
+      while(Timer.getFPGATimestamp() - autoStart <= teeterTurnTime + turnTime + autoBackUpTime) {}
        
       driveLeftA.set(-1);
       driveLeftB.follow(driveLeftA);
@@ -210,7 +210,7 @@ public class Robot extends TimedRobot {
       driveRightA.follow(driveLeftA);
       driveRightB.follow(driveLeftA);
 
-      while(Timer.getFPGATimestamp - autoStart <= autoBackUptime2) {}
+      while(Timer.getFPGATimestamp() - autoStart <= autoBackUpTime2) {}
 
       driveLeftA.set(0);
       driveLeftB.follow(driveLeftA);
@@ -223,7 +223,7 @@ public class Robot extends TimedRobot {
         grabCube();
       }
 
-      while(Timer.getFPGATimestamp - autoStart <= turnTime + autoBackUpTime2) {}
+      while(Timer.getFPGATimestamp() - autoStart <= turnTime + autoBackUpTime2) {}
 
       
     } else if(SmartDashboard.getBoolean("Station 3", true)) {
@@ -253,7 +253,7 @@ public class Robot extends TimedRobot {
        driveRightA.set(-1);
        driveRightB.follow(driveRightA);
        driveLeftA.set(0);
-       driveLeftB.set(driveLeftA);
+       driveLeftB.follow(driveLeftA);
 
        while(Timer.getFPGATimestamp() - autoStart <= teeterTurnTime + turnTime + autoBackUpTime) {}
 
@@ -279,11 +279,11 @@ public class Robot extends TimedRobot {
     if (goForAuto) {
 
       // series of timed events making up the flow of auto
-      if (Timer.getFGATimeStamp() - autoStart < 4) {
+      if (Timer.getFPGATimestamp() - autoStart < 4) {
         // spit out the ball for three seconds
         // intake.set(ControlMode.PercentOutput, -1);
 
-      } else if (Timer.getFGATimeStamp() - autoStart < 7) {
+      } else if (Timer.getFPGATimestamp() - autoStart < 7) {
         // stop spitting out the ball and drive backwards *slowly* for three seconds
         // intake.set(ControlMode.PercentOutput, 0);
 
