@@ -85,6 +85,17 @@ public class Robot extends TimedRobot {
   boolean goForAuto = false;
   boolean fast = false;
 
+ //Station (starting position)
+  int station = -1;
+
+  //Finals
+  //Used for teeter totter balancing
+  final double accelProportion = 1.0;
+  //Timestamp that it takes the robot to drive back to a new piece
+  final double autoBackUpTime = 0.0;
+  //Timestamp for the robot to turn around so it can grab a piece
+  final double turnTime = 0.0;
+
 
   /**
    * This function is run when the robot is first started up and should be used
@@ -115,8 +126,15 @@ public class Robot extends TimedRobot {
 
     // accelerometers
     SmartDashboard.putNumber("accelerometer (left/right)", accelerometer.getX());
-
     SmartDashboard.putNumber("accelerometer (Fowards/Backwards)", accelerometer.getY());
+
+    //Station number---All start in front of a cone stand (for now)
+    //Left far end
+    SmartDashboard.putBoolean("Station 1", true);
+    //Middle
+    SmartDashboard.putBoolean("Station 2", true);
+    //Right far end
+    SmartDashboard.putBoolean("Station 3", true);
 
   }
 
@@ -126,22 +144,49 @@ public class Robot extends TimedRobot {
     autoStart = Timer.getFPGATimestamp();
     // check dashboard icon to ensure good to do auto
     goForAuto = SmartDashboard.getBoolean("Go For Auto", true);
+    
+    if(SmartDashboard.getBoolean("Station 1", true)) {
+      scoreCone();
+
+      //This and other instances of -1 drive power might have to be changed to 1
+      driveLeftA.set(-1);
+      driveLeftB.follow(driveLeftA);
+      driveRightA.follow(driveLeftA);
+      driveRightB.follow(driveRightA);
+
+      while(Timer.getFGATimestamp() - autoStart <= autoBackUpTime) {}
+
+      driveLeftA.set(0);
+      driveLeftB.follow(driveLeftA);
+      driveRightA.set(-1);
+      driveLeftB.follow(driveRightA);
+
+      while(Timer.getFGATimestamp() - autoStart <= turnTime) {}
+      
+      /**
+       * Grab piece code
+       */
+
+       
+
+    } else if(SmartDashboard.getBoolean("Station 2", true)) {
+
+    } else if(SmartDashboard.getBoolean("Station 3", true)) {
+
+    }
   }
 
   /** This function is called periodically during autonomous. */
   @Override
   public void autonomousPeriodic() {
-
-    // get time since start of auto
-    double autoTimeElapsed = Timer.getFPGATimestamp() - autoStart;
     if (goForAuto) {
 
       // series of timed events making up the flow of auto
-      if (autoTimeElapsed < 4) {
+      if (Timer.getFGATimeStamp() - autoStart < 4) {
         // spit out the ball for three seconds
         // intake.set(ControlMode.PercentOutput, -1);
 
-      } else if (autoTimeElapsed < 7) {
+      } else if (Timer.getFGATimeStamp() - autoStart < 7) {
         // stop spitting out the ball and drive backwards *slowly* for three seconds
         // intake.set(ControlMode.PercentOutput, 0);
 
@@ -199,9 +244,8 @@ public class Robot extends TimedRobot {
     driveRightA.set(driveRightPower / 2);
     driveRightB.follow(driveRightA);
 
-    if(Timer.getFPGATimestamp() >= 215) {
-      final double accelProportion = 1.0;
-      //Maybe this needs to be getY instead of getX
+    if(Timer.getFPGATimestamp() - autoStart >= 215) {
+      //Maybe this needs to be getZ instead of getX
       driveLeftA.set(accelProportion * -1 * accelerometer.getX());
       driveLeftB.follow(driveLeftA);
       driveRightA.follow(driveLeftA);
@@ -219,5 +263,12 @@ public class Robot extends TimedRobot {
     driveRightA.set(0);
     driveRightB.set(0);
     // intake.set(ControlMode.PercentOutput, 0);
+  }
+
+  public void scoreCone() {
+    //Code for scoring a cone
+  }
+  public void scoreCube() {
+    //Code for scoring a cube
   }
 }
