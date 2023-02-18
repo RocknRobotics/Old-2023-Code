@@ -106,6 +106,8 @@ public class Robot extends TimedRobot {
   final double teeterDriveTime2 = 0.0;
   //Time stamp for the robot to line up to not take up all the space on the teeter totter
   final double teeterOrientTime = 0.0;
+  //Time to stay on the teeter
+  final double onTeeterTime = 0.0;
 
 
   /**
