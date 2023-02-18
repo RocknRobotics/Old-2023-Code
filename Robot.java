@@ -154,14 +154,14 @@ public class Robot extends TimedRobot {
       driveRightA.follow(driveLeftA);
       driveRightB.follow(driveRightA);
 
-      while(Timer.getFGATimestamp() - autoStart <= autoBackUpTime) {}
+      while(Timer.getFPGATimestamp() - autoStart <= autoBackUpTime) {}
 
       driveLeftA.set(0);
       driveLeftB.follow(driveLeftA);
       driveRightA.set(-1);
       driveLeftB.follow(driveRightA);
 
-      while(Timer.getFGATimestamp() - autoStart <= turnTime) {}
+      while(Timer.getFPGATimestamp() - autoStart <= turnTime) {}
       
       /**
        * Grab piece code
@@ -182,11 +182,11 @@ public class Robot extends TimedRobot {
     if (goForAuto) {
 
       // series of timed events making up the flow of auto
-      if (Timer.getFGATimeStamp() - autoStart < 4) {
+      if (Timer.getFPGATimestamp() - autoStart < 4) {
         // spit out the ball for three seconds
         // intake.set(ControlMode.PercentOutput, -1);
 
-      } else if (Timer.getFGATimeStamp() - autoStart < 7) {
+      } else if (Timer.getFPGATimestamp() - autoStart < 7) {
         // stop spitting out the ball and drive backwards *slowly* for three seconds
         // intake.set(ControlMode.PercentOutput, 0);
 
