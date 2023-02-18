@@ -8,20 +8,20 @@ ex.
 Please add stuff I missed.
 
 INPUTS:
-  1. accelerometer math and code
+  1. accelerometer math and code ✓
     a. We need to balance on a teetertoter.
     b. Right now we are importing:
       edu.wpi.first.wpilibj.interfaces.Accelerometer;
       edu.wpi.first.wpilibj.BuiltInAccelerometer;
-    someone needs to find out how to use these and the math. 
+    someone needs to find out how to use these and the math. ✓
 
   2. limit switch
     a. There will be a limit switch at the robot that the arm will hit when it reaches to high.
     b. Find out what we need to import and how to use it.
 
-  3. encoder math and code
+  3. encoder math and code 
     a. We need to know the angle the arm needs to be to place the cones and cubes.
-    b. Find what we need to import and how to use it.
+    b. Find what we need to import and how to use it. ✓
     
   4. distance sensor
     a. There is a distance sensor which detects how far the arm is extending.
@@ -48,11 +48,11 @@ OUTPUTS:
     
   2. pneumatic claw
     a. We need to know how to activate the pneumatics in the claw.
-    b. Find out what we need to import and how to use it.
+    b. Find out what we need to import and how to use it. ✓
   
   3. linear actuator
     a. We are using a linear actuator to lift the arm. 
-    b. Find out what we need to import and how to use it.
+    b. Find out what we need to import and how to use it. ✓
 
   4. arm extension motor
     a. We have a motor that extends the arm.
