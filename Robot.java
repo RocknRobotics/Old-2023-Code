@@ -359,6 +359,8 @@ public class Robot extends TimedRobot {
     driveLeftB.set(0);
     driveRightA.set(0);
     driveRightB.set(0);
+    armActuator.set(0);
+    armExtension.set(0);
     // intake.set(ControlMode.PercentOutput, 0);
   }
 
