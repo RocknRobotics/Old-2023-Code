@@ -80,6 +80,18 @@ public class Robot extends TimedRobot {
 
   //Camera
   Thread m_visionThread;
+  //Dont know if works
+  
+//   thread = new VisionThread(camera, new GripPipeline(), pipeline -> {
+//   if (!pipelie.filterContoursOutput().isEmpty()) {
+//     Rect r = Imgproc.boundingRect(pipeline.filterContoursOutput().get(0));
+//     synchronized (imgLock) {
+//         centerX = r.x + (r.width / 2);
+//         System.out.println(r.width);
+//     }
+//   }
+// });
+  
 
   double autoStart = 0;
   boolean goForAuto = false;
