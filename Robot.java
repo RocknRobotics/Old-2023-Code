@@ -26,6 +26,7 @@ import org.opencv.imgproc.Imgproc;
 import edu.wpi.first.cameraserver.CameraServer;
 import edu.wpi.first.cscore.CvSink;
 import edu.wpi.first.cscore.CvSource;
+import edu.wpi.first.cscore.VideoSource;
 import edu.wpi.first.cscore.UsbCamera;
 import edu.wpi.first.cscore.VideoMode.PixelFormat;
 
@@ -79,8 +80,12 @@ public class Robot extends TimedRobot {
   PS4Controller ps1 = new PS4Controller(0);
 
   //Camera
-  Thread m_visionThread;
+  Thread driverThread;
+  //Second parameter we need to change based on whether its being identified by the device number or the device path
+  VideoSource driverCam;
+  VideoSource armCam;
 
+  
   double autoStart = 0;
   boolean goForAuto = false;
   boolean fast = false;
@@ -110,6 +115,12 @@ public class Robot extends TimedRobot {
   final double onTeeterTime = 0.0;
   //Postion that the robot must be at on the teeter totter for it to be stable, assuming it starts just in front of the teeter totter.
   final double teeterPosition = 0.0;
+  //The amount that the driver can be off on when lining up for scoring a cube
+  final double offSetRangeX = 0.0;
+  //The amount that the top corners of the aprilTag can be misaligned
+  final double offSetRangeY = 0.0;
+  //How close the robot needs to be to the aprilTag is determined the image coordinates of the top corners
+  final double offSetLevelY = 0.0;
 
 
   /**
@@ -131,8 +142,52 @@ public class Robot extends TimedRobot {
     driveRightB.burnFlash();
     fast = false;
 
-    CameraServer.startAutomaticCapture();
-    CameraServer.startAutomaticCapture();
+    driverCam = new UsbCamera("driverCam", 0);
+    //Resolutions NEED to be figured out. It isn't the camera resolution, but the OPTIMAL resolution we want
+    driverCam.setResolution(1, 1);
+    armCam = new UsbCamera("armCam", 0);
+    armCam.setResolution(1, 1);
+
+    CameraServer.addCamera(driverCam);
+    CameraServer.addCamera(armCam);
+
+    driverThread = () -> {
+      CvSink images = CameraServer.getVideo(driverCam);
+      Mat currImg = new Mat();
+      images.grabFrame(currImg);
+
+      if(SmartDashboard.getBoolean("Has Cube")) {
+        AprilTagDetector currDetector = new ApriltagDetector();
+        //Robot should be close enough that no bit errors occur
+        currDetector.addFamily("16h5", 0);
+        AprilTagDetection[] nearbyTags = myDetector.detect(currImg);
+        //This NEEDS to be changed so that the last four parameters are the (in pixels) horizontal focal length,
+        //vertical focal length, horizontal focal center, and the vertical focal center of the Camera
+        AprilTagEstimator tagEstimator = new AprilTagEstimator(AprilTagEstimator.Config(0.006, 0, 0, 0, 0));
+  
+        //I have literally no clue which corner is which
+        //It has to be within a certain y alignment threshold to trigger and it'll figure out the rotation alignment
+        
+        for(AprilTagDetection aTag: nearbyTags) {
+          //Might have to change last parameter (describe num of iterations)
+          ApriltagPoseEstimate tagEstimate = tagEstimator.estimateOrthogonalIteration(aTag, 5);
+
+          //That's it for now, I'll probably add more either later today or tomorrow
+        }
+      } else if(SmartDashboard.getBoolean("Has Cone")) {
+
+      }
+    };
+
+    armThread = () -> {
+      CvSink images = CameraServer.getVideo(armCam);
+      Mat currImg = new Mat();
+      images.grabFram(currImg);
+
+      /**
+       * Do stuff with the armCam
+       */
+    };
 
     // add a thing on the dashboard to turn off auto if needed
     // SmartDashboard.put
@@ -151,9 +206,10 @@ public class Robot extends TimedRobot {
     //Right far end
     SmartDashboard.putBoolean("Station 3", false);
     //Cone or Cube to pick up
-    SmartDashboard.putBoolean("Cone", false);
-    SmartDashboard.putBoolean("Cube", false);
-
+    SmartDashboard.putBoolean("Has Cone", false);
+    SmartDashboard.putBoolean("Has Cube", false);
+    SmartDashboard.putBoolean("Score Bottom", false);
+    SmartDashboard.putBoolean("Score Top", false);
   }
 
   @Override
@@ -374,7 +430,7 @@ public class Robot extends TimedRobot {
     driveRightA.set(driveRightPower / 2);
     driveRightB.follow(driveRightA);
 
-    //Drivers MUST have the robot completely stopped sometime during the last 15 seconds for the robot to auto teeter. They also must stop it in front of the docking station
+    //Drivers MUST have the robot completely stopped sometime during the last 15 seconds for the robot to auto balance. They also must stop it in front of the teeter totter
     if(Timer.getFPGATimestamp() - autoStart >= 135 && accelerometer.getX() == 0 && accelerometer.getZ() == 0) {
       teeter(150.0);
     }
@@ -433,4 +489,5 @@ public class Robot extends TimedRobot {
       //Might have to change the Math.pow to be more or less, we'll see
       while(Timer.getFPGATimestamp() - currTime < Math.pow(10, -5)) {}
     }
+  }
 }
