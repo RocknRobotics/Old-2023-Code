@@ -108,6 +108,8 @@ public class Robot extends TimedRobot {
   final double teeterOrientTime = 0.0;
   //Time to stay on the teeter
   final double onTeeterTime = 0.0;
+  //Postion that the robot must be at on the teeter totter for it to be stable, assuming it starts just in front of the teeter totter.
+  final double teeterPosition = 0.0;
 
 
   /**
@@ -291,14 +293,17 @@ public class Robot extends TimedRobot {
     driveRightB.follow(driveLeftA);
 
     while(Timer.getFPGATimestamp() - tempTime <= onTeeterTime) {}
+    
+    //Sets acceleration to 0
+    driveLeftA.set(0);
+    driveLeftB.follow(driveLeftA);
+    driveRightA.follow(driveLeftA);
+    driveRightB.follow(driveLeftA);
+    
+    //Might have to be getZ
+    while(accelerometer.getX() != 0) {}
 
-    if(Timer.getFPGATimestamp() - autoStart <= 15) {
-      //Maybe this needs to be getZ instead of getX
-      driveLeftA.set(accelProportion * -1 * accelerometer.getX());
-      driveLeftB.follow(driveLeftA);
-      driveRightA.follow(driveLeftA);
-      driveRightB.follow(driveRightB);
-    }
+    balanceOnTeeter(15.0);
   }
 
   /** This function is called periodically during autonomous. */
@@ -369,12 +374,9 @@ public class Robot extends TimedRobot {
     driveRightA.set(driveRightPower / 2);
     driveRightB.follow(driveRightA);
 
-    if(Timer.getFPGATimestamp() - autoStart >= 135) {
-      //Maybe this needs to be getZ instead of getX
-      driveLeftA.set(accelProportion * -1 * accelerometer.getX());
-      driveLeftB.follow(driveLeftA);
-      driveRightA.follow(driveLeftA);
-      driveRightB.follow(driveRightB);
+    //Drivers MUST have the robot completely stopped sometime during the last 15 seconds for the robot to auto teeter. They also must stop it in front of the docking station
+    if(Timer.getFPGATimestamp() - autoStart >= 135 && accelerometer.getX() == 0 && accelerometer.getZ() == 0) {
+      teeter(150.0);
     }
   }
 
@@ -404,4 +406,31 @@ public class Robot extends TimedRobot {
   public void grabCube() {
     //Oh boohoo I'm going to cry
   }
+  
+  //PRECONDITION: The robot IS NOT moving and is in front of the teeter totter
+  public void balanceOnTeeter(double time) {
+    double currTime = Timer.getFPGATimestamp();
+    double position = 0.0;
+    double velocity = 0.0;
+    
+    while(Timer.getFPGATimestamp() - autoStart < time) {
+      //Yet another place where it might have to be getZ instead of getX
+      velocity += (Timer.getFPGATimestamp() - currTime) * accelerometer.getX();
+      position += (Timer.getFPGATimestamp() - currTime) * velocity;
+      currTime = Timer.getFPGATimestamp();
+      
+      if(position < teeterPosition) {
+        //Maybe -1, who knows. Not me, that's for sure
+        driveLeftA.set(1);
+      } else if(position > teeterPosition) {
+        driveLeftA.set(-1);
+      }
+      
+      driveLeftB.follow(driveLeftA);
+      driveRightA.follow(driveLeftA);
+      driveRightB.follow(driveLeftA);
+      
+      //Might have to change the Math.pow to be more or less, we'll see
+      while(Timer.getFPGATimestamp() - currTime < Math.pow(10, -5)) {}
+    }
 }
