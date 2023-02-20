@@ -98,7 +98,7 @@ public class Robot extends TimedRobot {
   final double accelProportion = 1.0;
   //Time that it takes the robot to drive back to a new piece
   final double autoBackUpTime = 0.0;
-  //Time that it takes the robot to drive back to a new piece from Station 2
+  //Time that it takes the robot to drive back to a new piece from Station 2 
   final double autoBackUpTime2 = 0.0;
   //Time for the robot to turn around so it can grab a piece---Should be the same for all stations
   final double turnTime =  0.0;
