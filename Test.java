@@ -3,10 +3,11 @@
   This is catastrophically poorly written code for the sake of being easy to follow
   If you know what the word "refactor" means, you should refactor this code
 */
-
 package frc.robot;
 
 import java.io.OutputStream;
+
+import java.text.*;
 
 //Motors
 import com.revrobotics.CANSparkMax;
@@ -29,6 +30,7 @@ import org.opencv.imgproc.Imgproc;
 import edu.wpi.first.cameraserver.CameraServer;
 import edu.wpi.first.cscore.CvSink;
 import edu.wpi.first.cscore.CvSource;
+import edu.wpi.first.cscore.VideoSource;
 import edu.wpi.first.cscore.UsbCamera;
 import edu.wpi.first.cscore.VideoMode.PixelFormat;
 
@@ -52,6 +54,7 @@ import edu.wpi.first.util.sendable.Sendable;
 
 public class Robot extends TimedRobot {
 
+  DecimalFormat fmt = new DecimalFormat("#.00");
   // Definitions for the hardware. Change this if you change what stuff you have
   // plugged in
   // drive motors
@@ -85,6 +88,7 @@ public class Robot extends TimedRobot {
   //Camera
   Thread m_visionThread;
 
+  double prev = 0;
   double autoStart = 0;
   boolean goForAuto = false;
   boolean fast = false;
@@ -98,7 +102,7 @@ public class Robot extends TimedRobot {
   final double accelProportion = 1.0;
   //Time that it takes the robot to drive back to a new piece
   final double autoBackUpTime = 0.0;
-  //Time that it takes the robot to drive back to a new piece from Station 2 
+  //Time that it takes the robot to drive back to a new piece from Station 2
   final double autoBackUpTime2 = 0.0;
   //Time for the robot to turn around so it can grab a piece---Should be the same for all stations
   final double turnTime =  0.0;
@@ -137,6 +141,16 @@ public class Robot extends TimedRobot {
     armActuator.burnFlash();
     armExtension.setInverted(false);
     armExtension.burnFlash();
+    
+    driveLeftA.setOpenLoopRampRate(200);
+    driveLeftB.setOpenLoopRampRate(200);
+    driveRightA.setOpenLoopRampRate(200);
+    driveRightB.setOpenLoopRampRate(200);
+    driveLeftA.burnFlash();
+    driveLeftB.burnFlash();
+    driveRightA.burnFlash();
+    driveRightB.burnFlash();
+    
     fast = false;
 
     //Pneumatics
@@ -357,9 +371,32 @@ public class Robot extends TimedRobot {
   /** This function is called periodically during operator control. */
   @Override
   public void teleopPeriodic() {
+    //disable and enable
+    boolean stopped = false;
+    while (stopped) {
+      if (ps1.getPSButtonPressed()) {
+        stopped = false;
+      }
+    }
+
+    if (ps1.getPSButtonPressed()) {
+      stopped = true;
+    }
+    
+    double num = armPotentiometer.get();
+    num = (int)(num * 100) / 100.0;
+    if (num != prev) {
+      System.out.println((num) + " - ");
+      prev = num;
+    }
+    
+
     // Set up arcade steer
     double forward = 0;
     double turn = 0;
+
+    //System.out.println(driveLeftA.getClosedLoopRampRate());
+    //System.out.println(driveLeftA.getOpenLoopRampRate());
 
     // xbox
     if(ps1.getTriangleButtonReleased()){
@@ -368,14 +405,14 @@ public class Robot extends TimedRobot {
     if (!fast) {
       // regular mode & left trigger backward & right trigger foward
       forward = (-1 * (ps1.getL2Axis() / 4)) + (ps1.getR2Axis() / 4);
-      if (Math.abs(ps1.getRightX()) > .15) {
-        turn = ps1.getRightX() / 4;// right stick steer x-axis
+      if (Math.abs(ps1.getLeftX()) > .15) {
+        turn = ps1.getLeftX() / 4;// right stick steer x-axis
       }
     } else {
       // fast mode & left trigger backward & right trigger foward
       forward = (-1 * (ps1.getL2Axis())) + (ps1.getR2Axis());
-      if (Math.abs(ps1.getRightX()) > .15) {
-        turn = ps1.getRightX();// right stick steer x-axis
+      if (Math.abs(ps1.getLeftX()) > .15) {
+        turn = ps1.getLeftX();// right stick steer x-axis
       }
     }
     double driveLeftPower = (forward + turn);
@@ -401,10 +438,6 @@ public class Robot extends TimedRobot {
       armExtension.set(-1);
     } else {
       armExtension.set(0);
-    }
-
-    if (ps1.getPSButtonPressed()) {
-      disabledInit();
     }
 
     if (ps1.getOptionsButton()) {
