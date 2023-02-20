@@ -15,6 +15,9 @@ import com.revrobotics.CANSparkMaxLowLevel.MotorType;
 
 //Pneumatics
 import edu.wpi.first.wpilibj.DoubleSolenoid;
+import edu.wpi.first.wpilibj.PneumaticsControlModule;
+import edu.wpi.first.wpilibj.PneumaticsModuleType;
+import edu.wpi.first.wpilibj.Compressor;
 
 //Images
 import org.opencv.core.Mat;
@@ -45,7 +48,6 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 
 //Controller
 import edu.wpi.first.wpilibj.PS4Controller;
-import edu.wpi.first.wpilibj.PneumaticsModuleType;
 import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.util.sendable.Sendable;
 
