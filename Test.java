@@ -78,6 +78,20 @@ public class Robot extends TimedRobot {
 
   // accelerometer
   Accelerometer accelerometer = new BuiltInAccelerometer();
+  double velocityX = 0.0;
+  //Need to modify this based on starting station
+  double positionX = 0.0;
+  double velocityZ = 0.0;
+  //Same here
+  double positionZ = 0.0;
+  //Having the arm facing fowards and perpendicular to the grid is considered 0.0
+  double angle = 0.0;
+  //You never know what might come in handy
+  double velocity = 0.0;
+  double position = 0.0;
+  double accelTime = Timer.getFPGATimestamp();
+
+  Thread accelThread;
 
   //Potentiometer
   AnalogPotentiometer armPotentiometer = new AnalogPotentiometer(0);
@@ -180,6 +194,56 @@ public class Robot extends TimedRobot {
     SmartDashboard.putBoolean("Cone", false);
     SmartDashboard.putBoolean("Cube", false);
 
+    accelThread = () -> {
+      //Right Riemann, if this is too innaccurate then create another set of variables to store previous velocity/position
+      //and do the Middle (or do a trapezoidal if you're feeling fancy)
+      velocityX += (Timer.getFPGATimestamp() - accelTime) * accelerometer.getX();
+      positionX += (Timer.getFPGATimestamp() - accelTime) * velocityX;
+      velocityZ += (Timer.getFPGATimestamp() - accelTime) * accelerometer.getZ();
+      positionZ += (Timer.getFPGATimestamp() - accelTime) * velocityZ;
+      accelTime = Timer.getFPGATimestamp();
+
+      if(velocityX == 0) {
+        if(velocityZ == 0) {
+          //Staying still
+          angle = angle;
+        } else if(velocityZ > 0) {
+          //Heading to the right
+          angle = 90.0;
+        } else {
+          //Heading to the left
+          angle = 270.0;
+        }
+      } else if(velocityX > 0) {
+        if(velocityZ == 0) {
+          //Heading "up"
+          angle = 180.0;
+        } else if(velocityZ > 0) {
+          //Heading "up" and right
+          angle = Math.atan(velocityX / velocityZ) + 90.0;
+        } else {
+          //Heading "up" and left
+          angle = Math.atan(velocityX / velocityZ) + 180.0;
+        }
+      } else {
+        if(velocityZ == 0) {
+          //Heading "down"
+          angle = 0.0;
+        } else if(velocityZ > 0) {
+          //Heading "down" and right
+          angle = Math.atan(velocityX / velocityZ);
+        } else {
+          //Heading "down" and left
+          angle = Math.atan(velocityX / velocityZ) + 270.0;
+        }
+      }
+
+      velocity = Math.sqrt(Math.pow(velocityX, 2) + Math.pow(velocityZ, 2));
+      position = Math.sqrt(Math.pow(positionX, 2) + Math.pow(positionZ, 2));
+    };
+    //Low priority thread; minor increases in time between running shouldn't affect it too much
+    accelThread.setDaemon(true);
+    accelThread.start();
   }
 
   @Override
@@ -190,6 +254,9 @@ public class Robot extends TimedRobot {
     goForAuto = SmartDashboard.getBoolean("Go For Auto", true);
     
     if(SmartDashboard.getBoolean("Station 1", true)) {
+      positionX = 0.0;
+      positionZ = 0.0;
+
       scoreCone();
 
       //This and other instances of -1 drive power might have to be changed to 1
@@ -235,6 +302,9 @@ public class Robot extends TimedRobot {
        while(Timer.getFPGATimestamp() - autoStart <= teeterOrientTime + teeterDriveTime + teeterTurnTime + turnTime + autoBackUpTime) {}
        
     } else if(SmartDashboard.getBoolean("Station 2", true)) {
+      positionX = 0.0;
+      positionZ = 0.0;
+      
       scoreCone();
 
       //Something something maybe 1 instead of -1 I dunno
@@ -266,6 +336,9 @@ public class Robot extends TimedRobot {
       while(Timer.getFPGATimestamp() - autoStart <= teeterDriveTime2 + turnTime + autoBackUpTime2) {}
 
     } else if(SmartDashboard.getBoolean("Station 3", true)) {
+      positionX = 0.0;
+      positionZ = 0.0;
+      
       scoreCone();
 
       //This and other instances of -1 drive power might have to be changed to 1
@@ -518,7 +591,184 @@ public class Robot extends TimedRobot {
     }
   }
 
-  public void teeter(double a) {
+  public void goTo(double newPositionX, double newPositionZ) {
+    if(isOB(newPositionX, newPositionZ)) {
+      return;
+    }
 
+    double slope = (newPositionX - positionX) / (newPositionZ - positionZ);
+    double tempX = positionX;
+    double tempZ = positionZ;
+    double newPosition = Math.sqrt(Math.pow(newPositionX, 2) + Math.pow(newPositionZ, 2));
+    double targetAngle;
+
+    //Index 0 is when it should start "curving", Index 1 is the vertex, Index 2 is the end point
+    ArrayList<double[]> startCurvesX = new ArrayList<double[]>();
+    ArrayList<double[]> startCurvesZ = new ArrayList<double[]>();
+
+    while(tempZ <= newPositionZ) {
+      tempZ += 0.1;
+      tempX += slope * 0.1;
+
+      if(isOB(tempX, tempZ)) {
+        //Treat the Z as being fine
+        double[] xCurve = new double[3];
+        double[] zCurve = new double[3];
+        double needToGoDown = tempX;
+        double needToGoUp = tempX;
+
+        while(isOB(needToGoDown, tempZ) && isOB(needToGoUp, tempZ)) {
+          needToGoDown -= 0.1;
+          needToGoUp += 0.1;
+        }
+
+        if(isOB(needToGoDown, tempZ)) {
+          //Go up
+          needToGoUp += xMeterClearance;
+          double zHeight = Math.tan(xAngleClearance) * needToGoUp;
+          zCurve[0] = tempZ - (zHeight + zMeterClearance);
+          zCurve[1] = tempZ;
+          zCurve[2] = tempZ + zHeight + zMeterClearance;
+
+          xCurve[0] = tempX;
+          xCurve[1] = needToGoUp;
+          xCurve[2] = tempX;
+
+          startCurvesX.add(xCurve);
+          startCurvesZ.add(zCurve);
+        } else {
+          //Go down
+          needToGoDown -= xMeterClearance;
+          double zHeight = Math.tan(xAngleClearance) * needToGoDown * -1;
+          zCurve[0] = tempZ - (zHeight + zMeterClearance);
+          zCurve[1] = tempZ;
+          zCurve[2] = tempZ + zHeight + zMeterClearance;
+
+          xCurve[0] = tempX;
+          xCurve[1] = needToGoDown;
+          xCurve[2] = tempX;
+
+          startCurvesX.add(xCurve);
+          startCurvesZ.add(zCurve);
+        }
+      }
+    }
+
+    targetAngle = calcAngle(newPositionX, positionX, newPositionZ, positionZ);
+
+    orient(targetAngle);
+
+    driveLeftA.set(-1);
+    driveLeftB.follow(driveLeftA);
+    driveRightA.follow(driveLeftA);
+    driveRightB.follow(driveLeftA);
+
+    while(Math.abs(newPositionZ - positionZ) > zPositionTolerance && Math.abs(newPositionX - positionX) > xPositionTolerance) {
+      if(startCurvesZ.size() > 0 && startCurvesX.size() > 0) {
+        double[] zCurve = startCurvesZ.get(0);
+        double[] xCurve = startCurvesX.get(0);
+  
+        if(Math.abs(zCurve[0] - positionZ) <= zCurveTolerance && Math.abs(xCurve[0] - positionZ <= xCurveTolerance)) {
+          targetAngle = calcAngle(xCurve[1], positionX, zCurve[1], positionZ);
+
+          orient(targetAngle);
+          
+          driveLeftA.set(-1);
+          driveLeftB.follow(driveLeftA);
+          driveRightA.follow(driveLeftA);
+          driveRightB.follow(driveLeftA);
+  
+          while(Math.abs(zCurve[1] - positionZ) > zCurveTolerance && Math.abs(xCurve[1] - positionX) > xCurveTolerance) {}
+          targetAngle = calcAngle(xCurve[2], positionX, zCurve[2], positionZ);
+  
+          orient(targetAngle);
+  
+          driveLeftA.set(-1);
+          driveLeftB.follow(driveLeftA);
+          driveRightA.follow(driveLeftA);
+          driveRightB.follow(driveLeftA);
+  
+          while(Math.abs(zCurve[2] - positionZ) > zCurveTolerance && Math.abs(xCurve[2] - positionX) > xCurveTolerance) {}
+          targetAngle = calcAngle(newPositionX, positionX, newPositionZ, positionZ);
+          
+          orient(targetAngle);
+          startCurvesZ.remove(0);
+          startCurvesX.remove(0);
+          
+          driveLeftA.set(-1);
+          driveLeftB.follow(driveLeftA);
+          driveRightA.follow(driveLeftA);
+          driveRightB.follow(driveLeftA);
+        } else {
+          driveLeftA.set(-1);
+          driveLeftB.follow(driveLeftA);
+          driveRightA.follow(driveLeftA);
+          driveRightB.follow(driveLeftA);
+          double tempTime = Timer.getFPGATimestamp();
+  
+          //Might need changing
+          while(Timer.getFPGATimestamp() - tempTime <= Math.pow(10, -5)) {}
+        }
+      } else if(Math.abs(newPostition - (velocity / accelConst * velocity / 2 + position)) <= positionTolerance) {
+        //Changes direction of acceleration if it will cause it to stop upon reaching its destination
+        driveLeftA.set(1);
+        driveLeftB.follow(driveLeftA);
+        driveRightA.follow(driveLeftA);
+        driveRightB.follow(driveLeftA);
+      }
+    }
+  }
+
+  public boolean isOB(double aPositionX, double aPositionZ) {
+    for(int i = 0; i < OBX.length; i++) {
+      if(aPositionX >= OBX[i][0] && aPositionX <= OBX[i][1] && aPositionZ >= OBZ[i][0] && aPostionZ <= OBZ[i][1]) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  public double calcAngle(double newPositionX, double oldPositionX, double newPositionZ, double oldPositionZ) {
+    if(newPositionX == oldPositionX) {
+      if(newPositionZ == oldPositionZ) {
+        //Staying still
+        return angle;
+      } else if(newPositionZ > oldPositionZ) {
+        //Heading to the right
+        return 90.0;
+      } else {
+        //Heading to the left
+        return 270.0;
+      }
+    } else if(newPositionX > oldPositionX) {
+      if(newPositionZ == oldPositionZ) {
+        //Heading "up"
+        return 180.0;
+      } else if(newPositionZ > oldPositionZ) {
+        //Heading "up" and right
+        return Math.atan((newPositionX - oldPositionX) / (newPositionZ - oldPositionZ)) + 90.0;
+      } else {
+        //Heading "up" and left
+        return Math.atan((newPositionX - oldPositionX) / (newPositionZ - oldPositionZ)) + 180.0;
+      }
+    } else {
+      if(newPositionZ == oldPositionZ) {
+        //Heading "down"
+        return 0.0;
+      } else if(newPositionZ > oldPositionZ) {
+        //Heading "down" and right
+        return Math.atan((newPositionX - oldPositionX) / (newPositionZ - oldPositionZ));
+      } else {
+        //Heading "down" and left
+        return Math.atan((newPositionX - oldPositionX) / (newPositionZ - oldPositionZ)) + 270.0;
+      }
+    }
+
+    return 0.0;
+  }
+
+  public void orient(double targetAngle) {
+    //I promise it'll be done once I have access to the equation wall
   }
 }
