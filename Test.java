@@ -74,7 +74,6 @@ public class Robot extends TimedRobot {
   Compressor PneumaticsCompressor = new Compressor(PneumaticsModuleType.CTREPCM);
   DoubleSolenoid clawSolenoid1 = new DoubleSolenoid(0, PneumaticsModuleType.CTREPCM, 2, 3);
   DoubleSolenoid clawSolenoid2 = new DoubleSolenoid(0, PneumaticsModuleType.CTREPCM, 1, 0);
-  
 
   // accelerometer
   Accelerometer accelerometer = new BuiltInAccelerometer();
@@ -769,6 +768,33 @@ public class Robot extends TimedRobot {
   }
 
   public void orient(double targetAngle) {
-    //I promise it'll be done once I have access to the equation wall
+    double angularConst = accelConst / robotRadius;
+    angularConst *= 180.0;
+    angularConst /= Math.PI;
+    double degreeVelocity = velocity / robotRadius;
+    degreeVelocity *= 180.0;
+    degreeVelocity /= Math.PI;
+
+    driveLeftA.set(0);
+    driveLeftB.follow(driveLeftA);
+    driveRightA.set(1);
+    driveRightB.follow(driveRightA);
+
+    while(Math.abs(targetAngle - (degreeVelocity / angularConst * degreeVelocity / 2 + angle)) <= angleTolerance) {}
+
+    double tempTime = Timer.getFPGATimestamp();
+    double elapseTime = degreeVelocity / angularConst;
+
+    driveLeftA.set(0);
+    driveLeftB.follow(driveLeftA);
+    driveRightA.set(-1);
+    driveRightB.follow(driveRightA);
+
+    while(Timer.getFPGATimestamp() - tempTime < elapseTime) {}
+
+    driveLeftA.set(0);
+    driveLeftB.follow(driveLeftA);
+    driveRightA.follow(driveLeftA);
+    driveRightB.follow(driveLeftA);
   }
 }

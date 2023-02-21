@@ -24,6 +24,8 @@ public class Constants
 
     //The amount of acceleration turning the motors to 1 gives
     final double accelConst = 1.0;
+    //Radius of the robot for the angle alignment (meters)
+    final double robotRadius = 2.0;
 
     //Out-of-Bounds---Stores the X ranges and Z ranges of areas we don't want the robot to go to.
     //Each row stores two ranges---The lowest at index 0, and the highest at index 1
