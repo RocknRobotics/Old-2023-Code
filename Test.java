@@ -8,6 +8,7 @@ package frc.robot;
 import java.io.OutputStream;
 
 import java.text.*;
+import java.util.*;
 
 //Motors
 import com.revrobotics.CANSparkMax;
@@ -172,7 +173,7 @@ public class Robot extends TimedRobot {
     SmartDashboard.putBoolean("Grab Cone", false);
     SmartDashboard.putBoolean("Grab Cube", false);
 
-    accelThread = () -> {
+    accelThread = new Thread(() -> {
       //Right Riemann, if this is too innaccurate then create another set of variables to store previous velocity/position
       //and do the Middle (or do a trapezoidal if you're feeling fancy)
       velocityX += (Timer.getFPGATimestamp() - accelTime) * accelerometer.getX();
@@ -218,7 +219,7 @@ public class Robot extends TimedRobot {
 
       velocity = Math.sqrt(Math.pow(velocityX, 2) + Math.pow(velocityZ, 2));
       position = Math.sqrt(Math.pow(positionX, 2) + Math.pow(positionZ, 2));
-    };
+    });
     //Low priority thread; minor increases in time between running shouldn't affect it too much
     accelThread.setDaemon(true);
     accelThread.start();
@@ -461,6 +462,47 @@ public class Robot extends TimedRobot {
       
       //Might have to change the Math.pow to be more or less, we'll see
       while(Timer.getFPGATimestamp() - currTime < Math.pow(10, -5)) {}
+    }
+  }
+
+  //I'll comment later
+  public void goTo(double newPositionX, double newPositionZ, double angle) {
+    if(isOB(newPositionX, newPositionZ)) {
+      return;
+    }
+
+    double slope = (newPositionX - positionX) / (newPositionZ - positionZ);
+    double tempX = positionX;
+    double tempZ = positionZ;
+
+    ArrayList<double[]> startCurvesX = new ArrayList<double[]>();
+    ArrayList<double[]> startCurvesZ = new ArrayList<double[]>();
+
+    for(int i = 0; i < Constants.OBZ.length; i++) {
+      if(positionZ < Constants.OBZ[i][0] && newPositionZ > Constants.OBZ[i][1]) {
+        double startX = (Constants.OBZ[i][0] - positionZ) * slope;
+        double endX = (Constants.OBZ[i][1] - newPositionZ) * slope;
+
+        if((startX < Constants.OBX[i][0] || startX > Constants.OBX[i][1]) && (endX < Constants.OBX[i][0] || endX > Constants.OBX[i][1])) {
+          double targetZ = ((Constants.OBZ[i][1] - Constants.OBZ[i][0]) / 2.0) + Constants.OBZ[i][0];
+
+          if(targetZ < positionZ) {
+            startCurvesZ.add(new double[] {targetZ + Constants.zFeetClearance, targetZ, targetZ - Constants.zFeetClearance});
+          } else {
+            startCurvesZ.add(new double[] {targetZ - Constants.zFeetClearance, targetZ, targetZ + Constants.zFeetClearance});
+          }
+
+          double targetX;
+
+          if(newPositionX - positionX >= 0) {
+            targetX = Constants.OBX[i][1] + Constants.xFeetClearance;
+          } else {
+            targetX = Constants.OBX[i][0] - Constants.xFeetClearance;
+          }
+
+          startCurvesX.add(new double[] {positionX, targetX, newPositionX});
+        }
+      }
     }
   }
 
