@@ -15,7 +15,9 @@ public class Constants
 
     //The amount of acceleration turning the motors to 1 gives
     public static final double accelConst = 1.0;
-    //Radius of the robot for the angle alignment (meters)
+    //The maximum velocity the robot can travel in ft/s
+    public static final double maxVelocity = 1.0;
+    //Radius of the robot for the angle alignment (feet)
     public static final double robotRadius = 2.0;
 
     //Out-of-Bounds---Stores the X ranges and Z ranges of areas we don't want the robot to go to.
@@ -23,9 +25,11 @@ public class Constants
     public static final double[][] OBX = new double[][] {{}};
     public static final double[][] OBZ = new double[][] {{}};
 
-    public static final double xAngleClearnace = 15.0;
-    public static final double xMeterClearance = 1.0;
-    public static final double zMeterClearance = 1.0;
+    //Under ideal cirumstances these are arrays relating to the OB arrays, but this should suffice for this year's game
+    //Clearance around an obstacle
+    public static final double xFeetClearance = 1.0;
+    //Clearance before an obstacle
+    public static final double zFeetClearance = 1.0;
 
     //The amount the position can be off by at any point of alignment on the curve
     public static final double xCurveTolerance = 0.1;
