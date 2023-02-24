@@ -72,8 +72,14 @@ public class Robot extends TimedRobot {
   //Pneumatics
   PneumaticsControlModule PneumaticsControl = new PneumaticsControlModule();
   Compressor PneumaticsCompressor = new Compressor(PneumaticsModuleType.CTREPCM);
+  //3 goes to 0
+  //0 goes to 2
+  //1 stays the same
+  //2 goes to 3
   DoubleSolenoid clawSolenoid1 = new DoubleSolenoid(0, PneumaticsModuleType.CTREPCM, 2, 3);
+  //DoubleSolenoid clawSolenoid1 = new DoubleSolenoid(0, PneumaticsModuleType.CTREPCM, 3, 0);
   DoubleSolenoid clawSolenoid2 = new DoubleSolenoid(0, PneumaticsModuleType.CTREPCM, 1, 0);
+  //DoubleSolenoid clawSolenoid2 = new DoubleSolenoid(0, PneumaticsModuleType.CTREPCM, 1, 2);
   
 
   // accelerometer
