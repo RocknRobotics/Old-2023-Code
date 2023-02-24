@@ -81,7 +81,6 @@ public class Robot extends TimedRobot {
   DoubleSolenoid clawSolenoid2 = new DoubleSolenoid(0, PneumaticsModuleType.CTREPCM, 1, 0);
   //DoubleSolenoid clawSolenoid2 = new DoubleSolenoid(0, PneumaticsModuleType.CTREPCM, 1, 2);
   
-
   // accelerometer
   Accelerometer accelerometer = new BuiltInAccelerometer();
 
