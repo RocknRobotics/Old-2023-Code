@@ -493,3 +493,164 @@ public class Robot extends TimedRobot {
     }
   }
 }
+/** Removed methods from Test in case they're needed here
+ * public void goTo(double newPositionX, double newPositionZ) {
+    if(isOB(newPositionX, newPositionZ)) {
+      return;
+    }
+
+    double slope = (newPositionX - positionX) / (newPositionZ - positionZ);
+    double tempX = positionX;
+    double tempZ = positionZ;
+    double newPosition = Math.sqrt(Math.pow(newPositionX, 2) + Math.pow(newPositionZ, 2));
+    double targetAngle;
+
+    //Index 0 is when it should start "curving", Index 1 is the vertex, Index 2 is the end point
+    ArrayList<double[]> startCurvesX = new ArrayList<double[]>();
+    ArrayList<double[]> startCurvesZ = new ArrayList<double[]>();
+
+    while(tempZ <= newPositionZ) {
+      //Need to change this later based on what the minimum OB zone is for the x or z to optimize the loop
+      tempZ += 0.1;
+      tempX += slope * 0.1;
+
+      if(isOB(tempX, tempZ)) {
+        //Treat the Z as being fine
+        double[] xCurve = new double[3];
+        double[] zCurve = new double[3];
+        double needToGoDown = tempX;
+        double needToGoUp = tempX;
+        double zHeight = 0.0;
+
+        while(isOB(needToGoDown, tempZ) && isOB(needToGoUp, tempZ)) {
+          needToGoDown -= 0.1;
+          needToGoUp += 0.1;
+        }
+
+        if(isOB(needToGoDown, tempZ)) {
+          //Go up
+          needToGoUp += Constants.xMeterClearance;
+          zHeight = Math.tan(Constants.xAngleClearance) * needToGoUp;
+
+          xCurve[1] = needToGoUp;
+        } else {
+          //Go down
+          needToGoDown -= xMeterClearance;
+          zHeight = Math.tan(Constants.xAngleClearance) * needToGoDown * -1;
+
+          xCurve[1] = needToGoDown;
+        }
+        zCurve[0] = tempZ - (zHeight + Constants.zMeterClearance);
+        zCurve[1] = tempZ;
+        zCurve[2] = tempZ + (zHeight + Constants.zMeterClearance);
+
+        xCurve[0] = tempX;
+        xCurve[2] = tempX;
+
+        startCurvesZ.add(zCurve);
+        startCurvesX.add(xCurve);
+      }
+    }
+
+    targetAngle = calcAngle(newPositionX, positionX, newPositionZ, positionZ);
+
+    orient(targetAngle);
+
+    driveLeftA.set(-1);
+    driveRightA.set(-1);
+
+    while(Math.abs(newPositionZ - positionZ) > Constants.zPositionTolerance && Math.abs(newPositionX - positionX) > Constants.xPositionTolerance) {
+      if(startCurvesZ.size() > 0 && startCurvesX.size() > 0) {
+        double[] zCurve = startCurvesZ.get(0);
+        double[] xCurve = startCurvesX.get(0);
+  
+        if(Math.abs(zCurve[0] - positionZ) <= Constants.zCurveTolerance && Math.abs(xCurve[0] - positionZ <= Constants.xCurveTolerance)) {
+          targetAngle = calcAngle(xCurve[1], positionX, zCurve[1], positionZ);
+
+          orient(targetAngle);
+          
+          driveLeftA.set(-1);
+          driveRightA.set(-1);
+  
+          while(Math.abs(zCurve[1] - positionZ) > Constants.zCurveTolerance && Math.abs(xCurve[1] - positionX) > Constants.xCurveTolerance) {}
+          targetAngle = calcAngle(xCurve[2], positionX, zCurve[2], positionZ);
+  
+          orient(targetAngle);
+  
+          driveLeftA.set(-1);
+          driveRightA.set(-1);
+  
+          while(Math.abs(zCurve[2] - positionZ) > Constants.zCurveTolerance && Math.abs(xCurve[2] - positionX) > Constants.xCurveTolerance) {}
+          targetAngle = calcAngle(newPositionX, positionX, newPositionZ, positionZ);
+          
+          orient(targetAngle);
+          startCurvesZ.remove(0);
+          startCurvesX.remove(0);
+          
+          driveLeftA.set(-1);
+          driveRightA.set(-1);
+        } else {
+          driveLeftA.set(-1);
+          driveRightA.set(-1);
+          double tempTime = Timer.getFPGATimestamp();
+  
+          //Might need changing
+          while(Timer.getFPGATimestamp() - tempTime <= Math.pow(10, -5)) {}
+        }
+      } else if(Math.abs(newPostition - (velocity / Constants.accelConst * velocity / 2 + position)) <= Constants.positionTolerance) {
+        //Changes direction of acceleration if it will cause it to stop upon reaching its destination
+        driveLeftA.set(1);
+        driveRightA.set(1);
+      }
+    }
+  }
+
+  public boolean isOB(double aPositionX, double aPositionZ) {
+    for(int i = 0; i < OBX.length; i++) {
+      if(aPositionX >= OBX[i][0] && aPositionX <= OBX[i][1] && aPositionZ >= OBZ[i][0] && aPostionZ <= OBZ[i][1]) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  public double calcAngle(double newPositionX, double oldPositionX, double newPositionZ, double oldPositionZ) {
+    if(newPositionX == oldPositionX) {
+      if(newPositionZ == oldPositionZ) {
+        //Staying still
+        return angle;
+      } else if(newPositionZ > oldPositionZ) {
+        //Heading to the right
+        return 90.0;
+      } else {
+        //Heading to the left
+        return 270.0;
+      }
+    } else if(newPositionX > oldPositionX) {
+      if(newPositionZ == oldPositionZ) {
+        //Heading "up"
+        return 180.0;
+      } else if(newPositionZ > oldPositionZ) {
+        //Heading "up" and right
+        return Math.atan((newPositionX - oldPositionX) / (newPositionZ - oldPositionZ)) + 90.0;
+      } else {
+        //Heading "up" and left
+        return 180.0 - Math.atan((newPositionX - oldPositionX) / (newPositionZ - oldPositionZ));
+      }
+    } else {
+      if(newPositionZ == oldPositionZ) {
+        //Heading "down"
+        return 0.0;
+      } else if(newPositionZ > oldPositionZ) {
+        //Heading "down" and right
+        return 90.0 - Math.atan((newPositionX - oldPositionX) / (newPositionZ - oldPositionZ));
+      } else {
+        //Heading "down" and left
+        return Math.atan((newPositionX - oldPositionX) / (newPositionZ - oldPositionZ)) + 270.0;
+      }
+    }
+
+    return 0.0;
+  }
+ */
