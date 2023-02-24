@@ -25,6 +25,10 @@ import org.opencv.core.Point;
 import org.opencv.core.Scalar;
 import org.opencv.imgproc.Imgproc;
 
+import edu.wpi.first.apriltag.AprilTagDetection;
+import edu.wpi.first.apriltag.AprilTagDetector;
+import edu.wpi.first.apriltag.AprilTagPoseEstimate;
+import edu.wpi.first.apriltag.AprilTagPoseEstimator;
 //Camera
 import edu.wpi.first.cameraserver.CameraServer;
 import edu.wpi.first.cscore.CvSink;
@@ -83,6 +87,7 @@ public class Robot extends TimedRobot {
 
   //Camera
   Thread driverThread;
+  Thread armThread;
   //Second parameter we need to change based on whether its being identified by the device number or the device path
   VideoSource driverCam;
   VideoSource armCam;
@@ -153,43 +158,43 @@ public class Robot extends TimedRobot {
     CameraServer.addCamera(driverCam);
     CameraServer.addCamera(armCam);
 
-    driverThread = () -> {
+    driverThread = new Thread(() -> {
       CvSink images = CameraServer.getVideo(driverCam);
       Mat currImg = new Mat();
       images.grabFrame(currImg);
 
-      if(SmartDashboard.getBoolean("Has Cube")) {
-        AprilTagDetector currDetector = new ApriltagDetector();
+      if(SmartDashboard.getBoolean("Has Cube", true)) {
+        AprilTagDetector currDetector = new AprilTagDetector();
         //Robot should be close enough that no bit errors occur
         currDetector.addFamily("16h5", 0);
-        AprilTagDetection[] nearbyTags = myDetector.detect(currImg);
+        AprilTagDetection[] nearbyTags = currDetector.detect(currImg);
         //This NEEDS to be changed so that the last four parameters are the (in pixels) horizontal focal length,
         //vertical focal length, horizontal focal center, and the vertical focal center of the Camera
-        AprilTagEstimator tagEstimator = new AprilTagEstimator(AprilTagEstimator.Config(0.006, 0, 0, 0, 0));
+        AprilTagPoseEstimator tagEstimator = new AprilTagPoseEstimator(new AprilTagPoseEstimator.Config(0.006, 0.0, 0.0, 0.0, 0.0));
   
         //I have literally no clue which corner is which
         //It has to be within a certain y alignment threshold to trigger and it'll figure out the rotation alignment
         
         for(AprilTagDetection aTag: nearbyTags) {
           //Might have to change last parameter (describe num of iterations)
-          ApriltagPoseEstimate tagEstimate = tagEstimator.estimateOrthogonalIteration(aTag, 5);
+          AprilTagPoseEstimate tagEstimate = tagEstimator.estimateOrthogonalIteration(aTag, 5);
 
           //That's it for now, I'll probably add more either later today or tomorrow
         }
-      } else if(SmartDashboard.getBoolean("Has Cone")) {
+      } else if(SmartDashboard.getBoolean("Has Cone", true)) {
 
       }
-    };
+    });
 
-    armThread = () -> {
+    armThread = new Thread(() -> {
       CvSink images = CameraServer.getVideo(armCam);
       Mat currImg = new Mat();
-      images.grabFram(currImg);
+      images.grabFrame(currImg);
 
       /**
        * Do stuff with the armCam
        */
-    };
+    });
 
     // add a thing on the dashboard to turn off auto if needed
     // SmartDashboard.put
@@ -434,7 +439,7 @@ public class Robot extends TimedRobot {
 
     //Drivers MUST have the robot completely stopped sometime during the last 15 seconds for the robot to auto balance. They also must stop it in front of the teeter totter
     if(Timer.getFPGATimestamp() - autoStart >= 135 && accelerometer.getX() == 0 && accelerometer.getZ() == 0) {
-      teeter(150.0);
+      balanceOnTeeter(150.0);
     }
   }
 
@@ -652,5 +657,31 @@ public class Robot extends TimedRobot {
     }
 
     return 0.0;
+  }
+  
+  //PRECONDITION: The robot IS NOT moving and is in front of the teeter totter
+  public void balanceOnTeeter(double time) {
+    double currTime = Timer.getFPGATimestamp();
+    double position = 0.0;
+    double velocity = 0.0;
+    
+    while(Timer.getFPGATimestamp() - autoStart < time) {
+      //Yet another place where it might have to be getZ instead of getX
+      velocity += (Timer.getFPGATimestamp() - currTime) * accelerometer.getX();
+      position += (Timer.getFPGATimestamp() - currTime) * velocity;
+      currTime = Timer.getFPGATimestamp();
+      
+      if(position < teeterPosition) {
+        //Maybe -1, who knows. Not me, that's for sure
+        driveLeftA.set(1);
+        driveRightA.set(1);
+      } else if(position > teeterPosition) {
+        driveLeftA.set(-1);
+        driveRightA.set(-1);
+      }
+      
+      //Might have to change the Math.pow to be more or less, we'll see
+      while(Timer.getFPGATimestamp() - currTime < Math.pow(10, -5)) {}
+    }
   }
  */
