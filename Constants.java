@@ -1,3 +1,5 @@
+package frc.robot;
+
 public class Constants
 {
     public static final double RampUp = 2;
@@ -7,9 +9,6 @@ public class Constants
     //index 0 == station 1, index 1 == 2, and index 2 == 3
     public static final double[] autoPieceX = new double[] {0.0, 0.0, 0.0};
     public static final double[] autoPieceZ = new double[] {0.0, 0.0, 0.0};
-    //Position in front of teeter totter to go to
-    public static final double autoTeeterX = 0.0;
-    public static final double autoTeeterZ = 0.0;
     //Teeter midline, might be Z instead
     public static final double teeterPositionX = 0.0;
 
@@ -40,6 +39,16 @@ public class Constants
     public static final double xPositionTolerance = 0.05;
     public static final double positionTolerance = 0.05;
 
-    //Stores coordinates of teeter totter (since while it can be navigated, it requires correct positioning)
-    public static final double[] teeterCorners = new double[] {};
+    public static final double angleTolerance = 0.0;
+
+    public static final double zLineTolerance = 0.0;
+
+    //0 is top right---goes counter clockwise
+    public static final double[] teeterCornersZ = new double[] {};
+
+    public static final double zTeeterClearance = 0.0;
+
+    public static final double xTeeterClearance = 0.0;
+
+    public static final double[] teeterCornersX = new double[] {};
 }
