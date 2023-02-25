@@ -34,6 +34,9 @@ import edu.wpi.first.cscore.CvSource;
 import edu.wpi.first.cscore.VideoSource;
 import edu.wpi.first.cscore.UsbCamera;
 import edu.wpi.first.cscore.VideoMode.PixelFormat;
+import edu.wpi.first.cscore.VideoSink;
+import edu.wpi.first.networktables.NetworkTableEntry;
+import edu.wpi.first.networktables.NetworkTableInstance;
 
 //Accelerometer
 import edu.wpi.first.wpilibj.BuiltInAccelerometer;
@@ -73,16 +76,21 @@ public class Robot extends TimedRobot {
   //Pneumatics
   PneumaticsControlModule PneumaticsControl = new PneumaticsControlModule();
   Compressor PneumaticsCompressor = new Compressor(PneumaticsModuleType.CTREPCM);
-  DoubleSolenoid clawSolenoid1 = new DoubleSolenoid(0, PneumaticsModuleType.CTREPCM, 2, 3);
-  DoubleSolenoid clawSolenoid2 = new DoubleSolenoid(0, PneumaticsModuleType.CTREPCM, 1, 0);
+  DoubleSolenoid clawSolenoid1 = new DoubleSolenoid(0, PneumaticsModuleType.CTREPCM, 0, 1);
+  DoubleSolenoid clawSolenoid2 = new DoubleSolenoid(0, PneumaticsModuleType.CTREPCM, 2, 3);
+  
 
   // accelerometer
   Accelerometer accelerometer = new BuiltInAccelerometer();
+  double prevVelocityX = 0.0;
   double velocityX = 0.0;
   //Need to modify this based on starting station
+  double prevPositionX = 0.0;
   double positionX = 0.0;
+  double prevVelocityZ = 0.0;
   double velocityZ = 0.0;
   //Same here
+  double prevPosition = 0.0;
   double positionZ = 0.0;
   //Having the arm facing fowards and perpendicular to the grid is considered 0.0
   //The left and right mototr velocities
@@ -99,17 +107,58 @@ public class Robot extends TimedRobot {
 
   //Potentiometer
   AnalogPotentiometer armPotentiometer = new AnalogPotentiometer(0);
+  AnalogPotentiometer armExtensionPotentiometer = new AnalogPotentiometer(1);
+
+  //Arm threads
+  Thread scoreConeTop;
 
   //Controller
   PS4Controller ps1 = new PS4Controller(0);
+  PS4Controller ps2 = new PS4Controller(1);
 
   //Camera
   Thread m_visionThread;
+  UsbCamera topCamera;
+  UsbCamera bottomCamera;
+  NetworkTableEntry cameraSelection;
+  boolean topcam;
+
 
   double prev = 0;
   double autoStart = 0;
   boolean goForAuto = false;
   boolean fast = false;
+  boolean closed = false;
+  double leftSpeed = 0;
+  double rightSpeed = 0;
+  boolean stopped1 = false;
+  boolean stopped2 = false;
+
+ //Station (starting position) and cone/cube
+  int station = -1;
+
+
+  //Finals
+  //Used for teeter totter balancing
+  final double accelProportion = 1.0;
+  //Time that it takes the robot to drive back to a new piece
+  final double autoBackUpTime = 0.0;
+  //Time that it takes the robot to drive back to a new piece from Station 2
+  final double autoBackUpTime2 = 0.0;
+  //Time for the robot to turn around so it can grab a piece---Should be the same for all stations
+  final double turnTime =  0.0;
+  //Time for robot to orient towards the teeter totter
+  final double teeterTurnTime = 0.0;
+  //Time for the robot to drive backwards towards the teeter totter
+  final double teeterDriveTime = 0.0;
+  //Station 2 code
+  final double teeterDriveTime2 = 0.0;
+  //Time stamp for the robot to line up to not take up all the space on the teeter totter
+  final double teeterOrientTime = 0.0;
+  //Time to stay on the teeter
+  final double onTeeterTime = 0.0;
+  //Postion that the robot must be at on the teeter totter for it to be stable, assuming it starts just in front of the teeter totter.
+  final double teeterPosition = 0.0;
 
 
   /**
@@ -134,26 +183,30 @@ public class Robot extends TimedRobot {
     armExtension.setInverted(false);
     armExtension.burnFlash();
     
-    driveLeftA.setOpenLoopRampRate(200);
-    driveLeftB.setOpenLoopRampRate(200);
-    driveRightA.setOpenLoopRampRate(200);
-    driveRightB.setOpenLoopRampRate(200);
+    driveLeftA.setClosedLoopRampRate(200);
+    driveLeftB.setClosedLoopRampRate(200);
+    driveRightA.setClosedLoopRampRate(200);
+    driveRightB.setClosedLoopRampRate(200);
     driveLeftA.burnFlash();
     driveLeftB.burnFlash();
     driveRightA.burnFlash();
     driveRightB.burnFlash();
-
-    driveLeftB.follow(driveLeftA);
-    driveRightB.follow(driveRightA);
     
     fast = false;
+    closed = false;
+    stopped1 = false;
+    stopped2 = false;
 
     //Pneumatics
     PneumaticsControl.enableCompressorAnalog(100, 120);
     PneumaticsCompressor.enableAnalog(100, 120);
 
-    CameraServer.startAutomaticCapture();
-    CameraServer.startAutomaticCapture();
+    //cameras
+    bottomCamera = CameraServer.startAutomaticCapture("Bottom", 0);
+    topCamera = CameraServer.startAutomaticCapture("Top", 1);
+    cameraSelection = NetworkTableInstance.getDefault().getTable("").getEntry("CameraSelection");
+    cameraSelection.setString(bottomCamera.getName());
+    topcam = false;
 
     // add a thing on the dashboard to turn off auto if needed
     // SmartDashboard.put
@@ -161,12 +214,17 @@ public class Robot extends TimedRobot {
     goForAuto = SmartDashboard.getBoolean("Go For Auto", true);
 
     // accelerometers
-    SmartDashboard.putNumber("accelerometer (left/right)", accelerometer.getX());
-    SmartDashboard.putNumber("accelerometer (Fowards/Backwards)", accelerometer.getY());
-    SmartDashboard.putNumber("Velocity (left/right)", velocityX);
-    SmartDashboard.putNumber("Velocity (Forwards/Backwards)", velocityZ);
-    SmartDashboard.putNumber("Position (left/right)", positionX);
-    SmartDashboard.putNumber("Position (Forwards/Backwards)", positionZ);
+    SmartDashboard.putNumber("accelerometer X", 0);
+    SmartDashboard.putNumber("accelerometer Z", 0);
+    SmartDashboard.putNumber("accelerometer Y", 0);
+    SmartDashboard.putNumber("Velocity X (left/right)", velocityX);
+    SmartDashboard.putNumber("Velocity Z (Forwards/Backwards)", velocityZ);
+    SmartDashboard.putNumber("Position X (left/right)", positionX);
+    SmartDashboard.putNumber("Position Z (Forwards/Backwards)", positionZ);
+    SmartDashboard.putNumber("Angular Velocity", angularVelocity);
+    SmartDashboard.putNumber("Angle", angle);
+    SmartDashboard.putNumber("arm potentiometer", armPotentiometer.get());
+    SmartDashboard.putNumber("arm extension", armExtensionPotentiometer.get());
 
     //Station number---All start in front of a cone stand (for now)
     //Left far end
@@ -176,33 +234,42 @@ public class Robot extends TimedRobot {
     //Right far end
     SmartDashboard.putBoolean("Station 3", false);
     //Cone or Cube to pick up
-    SmartDashboard.putBoolean("Has Cone", false);
-    SmartDashboard.putBoolean("Has Cube", false);
-    SmartDashboard.putBoolean("Grab Cone", false);
-    SmartDashboard.putBoolean("Grab Cube", false);
+    SmartDashboard.putBoolean("Cone", false);
+    SmartDashboard.putBoolean("Cube", false);
 
     accelThread = new Thread(() -> {
       //Right Riemann, if this is too innaccurate then create another set of variables to store previous velocity/position
       //and do the Middle (or do a trapezoidal if you're feeling fancy)
-      double prevZ = positionZ;
-      velocityX += (Timer.getFPGATimestamp() - accelTime) * accelerometer.getX();
-      positionX += (Timer.getFPGATimestamp() - accelTime) * velocityX;
-      velocityZ += (Timer.getFPGATimestamp() - accelTime) * accelerometer.getZ();
-      positionZ += (Timer.getFPGATimestamp() - accelTime) * velocityZ;
-      accelTime = Timer.getFPGATimestamp();
+      while (1 + 6 == 7) {
+        double prevZ = positionZ;
+        velocityX += (Timer.getFPGATimestamp() - accelTime) * accelerometer.getX();
+        positionX += (Timer.getFPGATimestamp() - accelTime) * velocityX;
+        velocityZ += (Timer.getFPGATimestamp() - accelTime) * accelerometer.getZ();
+        positionZ += (Timer.getFPGATimestamp() - accelTime) * velocityZ;
+        accelTime = Timer.getFPGATimestamp();
 
-      //What does get return? Need to figure this out
-      leftVelocity += driveLeftA.get() * Constants.accelProportion * ((Timer.getFPGATimestamp() - accelTime));
-      rightVelocity += driveRightA.get() * Constants.accelProportion * ((Timer.getFPGATimestamp() - accelTime));
-      angularVelocity = (leftVelocity - rightVelocity) / Constants.robotRadius;
-      angle += angularVelocity * (Timer.getFPGATimestamp() - accelTime);
+        //What does get return? Need to figure this out
+        leftVelocity += driveLeftA.get() * Constants.accelProportion * ((Timer.getFPGATimestamp() - accelTime));
+        rightVelocity += driveRightA.get() * Constants.accelProportion * ((Timer.getFPGATimestamp() - accelTime));
+        angularVelocity = (leftVelocity - rightVelocity) / Constants.robotRadius;
+        angle += angularVelocity * (Timer.getFPGATimestamp() - accelTime);
 
-      velocity = Math.sqrt(Math.pow(velocityX, 2) + Math.pow(velocityZ, 2));
-      position = Math.sqrt(Math.pow(positionX, 2) + Math.pow(positionZ, 2));
+        velocity = Math.sqrt(Math.pow(velocityX, 2) + Math.pow(velocityZ, 2));
+        position = Math.sqrt(Math.pow(positionX, 2) + Math.pow(positionZ, 2));
+      }
+      /*try {
+        Thread.sleep(1);
+      } catch(InterruptedException e) {
+
+      }*/
     });
     //Low priority thread; minor increases in time between running shouldn't affect it too much
-    accelThread.setDaemon(true);
+    accelThread.setPriority(Thread.MIN_PRIORITY);
     accelThread.start();
+
+    scoreConeTop = new Thread(() -> {
+      
+    });
   }
 
   @Override
@@ -210,48 +277,149 @@ public class Robot extends TimedRobot {
     // get a time for auton start to do events based on time later
     autoStart = Timer.getFPGATimestamp();
     // check dashboard icon to ensure good to do auto
-    if(!SmartDashboard.getBoolean("Go For Auto", true)) {
-      return;
-    }
-
-    int station = -1;
-    //Maybe it's Z, one of them won't change
-    positionX = 0.0;
-
+    goForAuto = SmartDashboard.getBoolean("Go For Auto", true);
+    
     if(SmartDashboard.getBoolean("Station 1", true)) {
-      station = 1;
-      positionZ = 0.0;
-    } else if(SmartDashboard.getBoolean("Station 1", true)) {
-      station = 2;
-      positionZ = 0.0;
-    } else if(SmartDashboard.getBoolean("Station 1", true)) {
-      station = 3;
-      positionZ = 0.0;
-    }
-
-    if(SmartDashboard.getBoolean("Has Cone", true)) {
-      //I'm not entirely sure but I'm hoping this will reset the variable value
-      SmartDashboard.putBoolean("Has Cone", false);
       scoreCone();
-    } else if(SmartDashboard.getBoolean("Has Cube", true)) {
-      //I might change this to listen to the controller to know when it has a cube/cone and stuff, it depends
-      SmartDashboard.putBoolean("Has Cube", false);
-      scoreCube();
-    }
 
-    //This and other instances of -1 drive power might have to be changed to 1
-    goTo(Constants.autoPieceX[station - 1], Constants.autoPieceZ[station - 1], 180.0);
+      //This and other instances of -1 drive power might have to be changed to 1
+      driveLeftA.set(-1);
+      driveLeftB.follow(driveLeftA);
+      driveRightA.follow(driveLeftA);
+      driveRightB.follow(driveLeftA);
+
+      while(Timer.getFPGATimestamp() - autoStart <= autoBackUpTime) {}
+
+      driveLeftA.set(0);
+      driveLeftB.follow(driveLeftA);
+      driveRightA.set(-1);
+      driveLeftB.follow(driveRightA);
+
+      while(Timer.getFPGATimestamp() - autoStart <= turnTime + autoBackUpTime) {}
       
-    if(SmartDashboard.getBoolean("Grab Cone", true)) {
-      SmartDashboard.putBoolean("Grab Cone", false);
-      grabCone();
-    } else if(SmartDashboard.getBoolean("Grab Cube", true)) {
-      SmartDashboard.putBoolean("Grab Cube", false);
-      grabCube();
+      if(SmartDashboard.getBoolean("Cone", true)) {
+        grabCone();
+      } else if(SmartDashboard.getBoolean("Cube", true)) {
+        grabCube();
+      }
+
+      driveLeftA.set(-1);
+      driveLeftB.follow(driveLeftA);
+      driveRightA.set(0);
+      driveRightB.follow(driveRightA);
+
+      while(Timer.getFPGATimestamp() - autoStart <= teeterTurnTime + turnTime + autoBackUpTime) {}
+       
+      driveLeftA.set(-1);
+      driveLeftB.follow(driveLeftA);
+      driveRightA.follow(driveLeftA);
+      driveRightB.follow(driveLeftA);
+
+      while(Timer.getFPGATimestamp() - autoStart <= teeterDriveTime + teeterTurnTime + turnTime + autoBackUpTime) {}
+
+      driveLeftA.set(0);
+      driveLeftB.follow(driveLeftA);
+      driveRightA.set(-1);
+      driveRightB.follow(driveRightA);
+
+       while(Timer.getFPGATimestamp() - autoStart <= teeterOrientTime + teeterDriveTime + teeterTurnTime + turnTime + autoBackUpTime) {}
+       
+    } else if(SmartDashboard.getBoolean("Station 2", true)) {
+      scoreCone();
+
+      //Something something maybe 1 instead of -1 I dunno
+      driveLeftA.set(-1);
+      driveLeftB.follow(driveLeftA);
+      driveRightA.follow(driveLeftA);
+      driveRightB.follow(driveLeftA);
+
+      while(Timer.getFPGATimestamp() - autoStart <= autoBackUpTime2) {}
+
+      driveLeftA.set(0);
+      driveLeftB.follow(driveLeftA);
+      driveRightA.set(-1);
+      driveRightB.follow(driveRightA);
+
+      if(SmartDashboard.getBoolean("Cone", true)) {
+        grabCone();
+      } else if(SmartDashboard.getBoolean("Cube", true)) {
+        grabCube();
+      }
+
+      while(Timer.getFPGATimestamp() - autoStart <= turnTime + autoBackUpTime2) {}
+
+      driveLeftA.set(-1);
+      driveLeftB.follow(driveLeftA);
+      driveRightA.follow(driveLeftA);
+      driveRightB.follow(driveLeftA);
+
+      while(Timer.getFPGATimestamp() - autoStart <= teeterDriveTime2 + turnTime + autoBackUpTime2) {}
+
+    } else if(SmartDashboard.getBoolean("Station 3", true)) {
+      scoreCone();
+
+      //This and other instances of -1 drive power might have to be changed to 1
+      driveRightA.set(-1);
+      driveRightB.follow(driveRightA);
+      driveLeftA.follow(driveRightA);
+      driveLeftB.follow(driveRightA);
+
+      while(Timer.getFPGATimestamp() - autoStart <= autoBackUpTime) {}
+
+      driveRightA.set(0);
+      driveRightB.follow(driveRightA);
+      driveLeftA.set(-1);
+      driveLeftB.follow(driveLeftA);
+
+      while(Timer.getFPGATimestamp() - autoStart <= turnTime + autoBackUpTime) {}
+      
+      if(SmartDashboard.getBoolean("Cone", true)) {
+        grabCone();
+      } else if(SmartDashboard.getBoolean("Cube", true)) {
+        grabCube();
+      }
+
+       driveRightA.set(-1);
+       driveRightB.follow(driveRightA);
+       driveLeftA.set(0);
+       driveLeftB.follow(driveLeftA);
+
+       while(Timer.getFPGATimestamp() - autoStart <= teeterTurnTime + turnTime + autoBackUpTime) {}
+
+       driveRightA.set(-1);
+       driveRightB.follow(driveRightA);
+       driveLeftA.follow(driveRightA);
+       driveLeftB.follow(driveRightA);
+
+       while(Timer.getFPGATimestamp() - autoStart <= teeterDriveTime + teeterTurnTime + turnTime + autoBackUpTime) {}
+
+       driveRightA.set(0);
+       driveRightB.follow(driveRightA);
+       driveLeftA.set(-1);
+       driveLeftB.follow(driveLeftA);
+
+       while(Timer.getFPGATimestamp() - autoStart <= teeterOrientTime + teeterDriveTime + teeterTurnTime + turnTime + autoBackUpTime) {}
     }
 
-    //Need to add logic based on station
-    balanceOnTeeter(14.9, SmartDashboard.getBoolean("Station 1", true), SmartDashboard.getBoolean("Station 2", true), SmartDashboard.getBoolean("Station 3", true));
+    double tempTime = Timer.getFPGATimestamp();
+
+    driveLeftA.set(-1);
+    driveLeftB.follow(driveLeftA);
+    driveRightA.follow(driveLeftA);
+    driveRightB.follow(driveLeftA);
+
+    while(Timer.getFPGATimestamp() - tempTime <= onTeeterTime) {}
+    
+    //Sets acceleration to 0
+    driveLeftA.set(0);
+    driveLeftB.follow(driveLeftA);
+    driveRightA.follow(driveLeftA);
+    driveRightB.follow(driveLeftA);
+    
+    //Might have to be getZ
+    while(accelerometer.getX() != 0) {}
+
+    balanceOnTeeter(15.0, false, true, false);
   }
 
   /** This function is called periodically during autonomous. */
@@ -293,23 +461,16 @@ public class Robot extends TimedRobot {
   /** This function is called periodically during operator control. */
   @Override
   public void teleopPeriodic() {
+    //accelThread.start();
     //disable and enable
-    boolean stopped = false;
-    while (stopped) {
-      if (ps1.getPSButtonPressed()) {
-        stopped = false;
-      }
-    }
+    
 
     if (ps1.getPSButtonPressed()) {
-      stopped = true;
+      stopped1 = !stopped1;
     }
-    
-    double num = armPotentiometer.get();
-    num = (int)(num * 100) / 100.0;
-    if (num != prev) {
-      System.out.println((num) + " - ");
-      prev = num;
+
+    if (ps2.getPSButtonPressed()) {
+      stopped2 = !stopped2;
     }
     
 
@@ -321,66 +482,116 @@ public class Robot extends TimedRobot {
     //System.out.println(driveLeftA.getOpenLoopRampRate());
 
     // xbox
-    if(ps1.getTriangleButtonReleased()){
-      fast = !fast;
-    }
-    if (!fast) {
-      // regular mode & left trigger backward & right trigger foward
-      forward = (-1 * (ps1.getL2Axis() / 4)) + (ps1.getR2Axis() / 4);
-      if (Math.abs(ps1.getLeftX()) > .15) {
-        turn = ps1.getLeftX() / 4;// right stick steer x-axis
+    if (!stopped1) {
+      if(ps1.getTriangleButtonReleased()){
+        fast = !fast;
       }
-    } else {
-      // fast mode & left trigger backward & right trigger foward
-      forward = (-1 * (ps1.getL2Axis())) + (ps1.getR2Axis());
-      if (Math.abs(ps1.getLeftX()) > .15) {
-        turn = ps1.getLeftX();// right stick steer x-axis
+      if (!fast) {
+        // regular mode & left trigger backward & right trigger foward
+        forward = (-1 * (ps1.getL2Axis() / 4)) + (ps1.getR2Axis() / 4);
+        if (Math.abs(ps1.getLeftX()) > .15) {
+          turn = ps1.getLeftX() / 4;// right stick steer x-axis
+        }
+      } else {
+        // fast mode & left trigger backward & right trigger foward
+        forward = (-1 * (ps1.getL2Axis())) + (ps1.getR2Axis());
+        if (Math.abs(ps1.getLeftX()) > .15) {
+          turn = ps1.getLeftX();// right stick steer x-axis
+        }
       }
-    }
-    double driveLeftPower = (forward + turn);
-    double driveRightPower = (forward - turn);
+      turn *= 0.9;
+      double driveLeftPower = (forward + turn);
+      double driveRightPower = (forward - turn);
 
-    driveLeftA.set(driveLeftPower / 2);
-    driveLeftB.follow(driveLeftA);
-    driveRightA.set(driveRightPower / 2);
-    driveRightB.follow(driveRightA);
+      if (fast) {
+        leftSpeed = leftSpeed + (driveLeftPower - leftSpeed) / 20;
+        rightSpeed = rightSpeed + (driveRightPower - rightSpeed) / 20;
+      } else {
+        leftSpeed = leftSpeed + (driveLeftPower - leftSpeed) / 10;
+        rightSpeed = rightSpeed + (driveRightPower - rightSpeed) / 10;
+      }
+
+
+      driveLeftA.set(leftSpeed / 2);
+      driveLeftB.follow(driveLeftA);
+      driveRightA.set(rightSpeed / 2);
+      driveRightB.follow(driveRightA);
+    }
 
     //arm testing
-    if (ps1.getCircleButton()) {
-      armActuator.set(1);
-    } else if (ps1.getCrossButton()) {
-      armActuator.set(-1);
-    } else {
-      armActuator.set(0);
-    }
+    if (!stopped2) {
+      if (ps2.getL2Axis() > 0.5) {
+        armActuator.set(1);
+      } else if (ps2.getR2Axis() > 0.5) {
+        armActuator.set(-1);
+      } else {
+        armActuator.set(0);
+      }
 
-    if (ps1.getL1Button()) {
-      armExtension.set(1);
-    } else if (ps1.getR1Button()) {
-      armExtension.set(-1);
-    } else {
-      armExtension.set(0);
-    }
+      if (ps2.getLeftY() < -0.5) {
+        armExtension.set(1);
+      } else if (ps2.getLeftY() > 0.5) {
+        armExtension.set(-1);
+      } else {
+        armExtension.set(0);
+      }
 
-    if (ps1.getOptionsButton()) {
-      clawSolenoid1.set(DoubleSolenoid.Value.kForward);
-      clawSolenoid2.set(DoubleSolenoid.Value.kForward);
-    } else if (ps1.getShareButton()) {
-      clawSolenoid1.set(DoubleSolenoid.Value.kReverse);
-      clawSolenoid2.set(DoubleSolenoid.Value.kReverse);
-    } 
+      //open is circle
+      
+      if (ps2.getCircleButton()) {
+        clawSolenoid1.set(DoubleSolenoid.Value.kForward);
+        clawSolenoid2.set(DoubleSolenoid.Value.kForward);
+        closed = false;
+      } else if (ps2.getSquareButton() && !closed) {
+        clawSolenoid1.set(DoubleSolenoid.Value.kForward);
+        clawSolenoid2.set(DoubleSolenoid.Value.kReverse);
+        closed = true;
+      } else if (ps2.getCrossButton() && !closed) {
+        clawSolenoid1.set(DoubleSolenoid.Value.kReverse);
+        clawSolenoid2.set(DoubleSolenoid.Value.kReverse);
+        closed = true;
+      } 
 
-    if (ps1.getR3Button()) {
-      PneumaticsCompressor.start();
-    } else if (ps1.getL3Button()) {
-      PneumaticsCompressor.stop();
+      if (ps2.getTriangleButtonPressed() && topcam == false) {
+        cameraSelection.setString(topCamera.getName());
+        topcam = true;
+      } else if (ps2.getTriangleButtonPressed() && topcam == true) {
+        cameraSelection.setString(bottomCamera.getName());
+        topcam = false;
+      }
+
+      if (ps2.getR3Button()) {
+        PneumaticsCompressor.start();
+      } else if (ps2.getL3Button()) {
+        PneumaticsCompressor.stop();
+      }
+
+      if (ps2.getOptionsButtonPressed()) {
+        scoreConeTop();
+      }
+
+      if (ps2.getShareButtonPressed()) {
+        balanceOnTeeter(100000, false, true, false);
+      }
     }
 
     //Drivers MUST have the robot completely stopped sometime during the last 15 seconds for the robot to auto teeter. They also must stop it in front of the docking station
-    //I'll update functionality later so that it can balance as long as it's able to drive straight on to or is on the teeter
     if(Timer.getFPGATimestamp() - autoStart >= 135 && accelerometer.getX() == 0 && accelerometer.getZ() == 0) {
-      balanceOnTeeter(150.0, false, false, true);
+      teeter(150.0);
     }
+
+    //Reading measurements
+    SmartDashboard.putNumber("accelerometer X", accelerometer.getX());
+    SmartDashboard.putNumber("accelerometer Z", accelerometer.getZ());
+    SmartDashboard.putNumber("accelerometer Y", accelerometer.getY());
+    SmartDashboard.putNumber("Velocity X (left/right)", velocityX);
+    SmartDashboard.putNumber("Velocity Z (Forwards/Backwards)", velocityZ);
+    SmartDashboard.putNumber("Position X (left/right)", positionX);
+    SmartDashboard.putNumber("Position Z (Forwards/Backwards)", positionZ);
+    SmartDashboard.putNumber("Angular Velocity", angularVelocity);
+    SmartDashboard.putNumber("Angle", angle);
+    SmartDashboard.putNumber("arm potentiometer", armPotentiometer.get());
+    SmartDashboard.putNumber("arm extension", armExtensionPotentiometer.get());
   }
 
   @Override
@@ -400,19 +611,48 @@ public class Robot extends TimedRobot {
     // intake.set(ControlMode.PercentOutput, 0);
   }
 
-  public void scoreCone() {
+  public void scoreConeTop() {
     //Code for scoring a cone
+    while (armPotentiometer.get() < 0.424) {
+      armActuator.set(-1);
+      if (armExtensionPotentiometer.get() < 0.645) {
+        armExtension.set(-1);
+      }
+    }
+    while (armPotentiometer.get() > 0.424) {
+      armActuator.set(1);
+      if (armExtensionPotentiometer.get() < 0.645) {
+        armExtension.set(-1);
+      }
+    }
+    while (armExtensionPotentiometer.get() < 0.64) {
+      armExtension.set(-1);
+    }
+
+    clawSolenoid1.set(DoubleSolenoid.Value.kReverse);
+    clawSolenoid2.set(DoubleSolenoid.Value.kReverse);
   }
-  public void scoreCube() {
+  
+  public void scoreCubeTop() {
     //Code for scoring a cube
   }
+
+  public void scoreCone() {
+    //Code for scoring a cube
+  }
+
+  public void scoreCubeBot() {
+    //Code for scoring a cube
+  }
+  
   public void grabCone() {
     //I'm Kevin and I'm difficult
   }
   public void grabCube() {
     //Oh boohoo I'm going to cry
   }
-
+  
+  //PRECONDITION: The robot IS NOT moving and is in front of the teeter totter
   public void balanceOnTeeter(double time, boolean left, boolean middle, boolean right) {
     double z1 = Constants.teeterCornersZ[1];
     double x1 = Constants.teeterCornersX[1];
@@ -453,32 +693,25 @@ public class Robot extends TimedRobot {
     }
   }
 
-  //I've given up on the curved driving for now. Method should still work
   public void goTo(double newPositionX, double newPositionZ, double newAngle) {
     if(isOB(newPositionX, newPositionZ)) {
       return;
     }
-
     double slope = (newPositionX - positionX) / (newPositionZ - positionZ);
     double tempX = positionX;
     double tempZ = positionZ;
-
     ArrayList<Double> curvePointsZ = new ArrayList<Double>();
     ArrayList<Double> curvePointsX = new ArrayList<Double>();
-
     for(int i = 0; i < Constants.OBZ.length; i++) {
       if(tempZ < Constants.OBZ[i][0] && newPositionZ > Constants.OBZ[i][1]) {
         double startX = (Constants.OBZ[i][0] - tempZ) * slope + tempX;
         double endX = (Constants.OBZ[i][1] - tempZ) * slope + tempX;
-
         if((startX >= Constants.OBX[i][0] && startX <= Constants.OBX[i][1]) || (endX >= Constants.OBX[i][0] && endX <= Constants.OBX[i][1])) {
           curvePointsZ.add(tempZ);
           curvePointsX.add(tempX);
-
           if(newPositionZ < positionZ) {
             curvePointsZ.add(Constants.OBZ[i][1]);
             tempZ = Constants.OBZ[i][1];
-
             if(Constants.OBZ[i][0] > newPositionZ) {
               curvePointsZ.add(Constants.OBZ[i][0]);
               tempZ = Constants.OBZ[i][0];
@@ -486,13 +719,11 @@ public class Robot extends TimedRobot {
           } else {
             curvePointsZ.add(Constants.OBZ[i][0]);
             tempZ = Constants.OBZ[i][0];
-
             if(Constants.OBZ[i][1] < newPositionZ) {
               curvePointsZ.add(Constants.OBZ[i][1]);
               tempZ = Constants.OBZ[i][1];
             }
           }
-
           if(isOB(Constants.OBZ[i][0], Constants.OBX[i][0] - 1.0)) {
             curvePointsX.add(Constants.OBX[i][1]);
             tempX = Constants.OBX[i][1];
@@ -513,16 +744,13 @@ public class Robot extends TimedRobot {
         }
       }
     }
-
     curvePointsZ.add(newPositionZ);
     curvePointsX.add(newPositionX);
-
     while(curvePointsZ.size() > 0) {
       double currTime = Timer.getFPGATimestamp();
       double targetZ = curvePointsZ.remove(0);
       double targetX = curvePointsX.remove(0);
       double zLine = positionZ;
-
       while(Math.abs(targetX - positionX) > Constants.xPositionTolerance && Math.abs(targetZ - positionZ) > Constants.zPositionTolerance) {
         while((Math.abs(targetX - positionX) <= Constants.xPositionTolerance && Math.abs(targetZ - positionZ) > Constants.zPositionTolerance)
         || Math.abs(zLine - positionZ) > Constants.zLineTolerance) {
@@ -535,78 +763,71 @@ public class Robot extends TimedRobot {
               orient(positionZ < zLine ? 90.0 : 270.0);
             }
           }
-
           driveLeftA.set(1);
           driveRightA.set(1);
         }
-
         if(Math.abs((targetX > positionX ? 180.0 : 0.0) - angle) > Constants.angleTolerance) {
           orient(targetX > positionX ? 180.0 : 0.0);
         }
-
         driveLeftA.set(1);
         driveRightA.set(1);
       }
     }
-
     orient(newAngle);
-
     //Hopefully that's all
   }
 
   public void orient(double targetAngle) {
-    double tempAngle = angle;
-    double tempTime = Timer.getFPGATimestamp();
-    boolean less180 = false;
-
-    if(targetAngle - angle < 180) {
-      less180 = true;
-      driveLeftA.set(-1);
-      driveRightA.set(1);
-    } else {
-      driveLeftA.set(1);
-      driveRightA.set(-1);
-    }
-
-    while((Timer.getFPGATimestamp() - tempTime) < Math.pow(10, -10)) {}
-
-    double prevAngularVelocity = 0.0;
-    double angularVelocity = (angle - tempAngle) / (Timer.getFPGATimestamp() - tempTime);
-    double angularAccel = (angularVelocity - prevAngularVelocity) / (Timer.getFPGATimestamp() - tempTime);
-    tempAngle = angle;
-    tempTime = Timer.getFPGATimestamp();
-
-    //Might have to change to quarter-circle calculations instead
-    while(Math.abs(targetAngle - (angle + (((angularVelocity / angularAccel) * angularVelocity) / 2.0))) > Constants.angleTolerance) {
-      prevAngularVelocity = angularVelocity;
-      angularVelocity += (angle - tempAngle) / (Timer.getFPGATimestamp() - tempTime);
-      angularAccel += (angularVelocity - prevAngularVelocity) / (Timer.getFPGATimestamp() - tempTime);
+      double tempAngle = angle;
+      double tempTime = Timer.getFPGATimestamp();
+      boolean less180 = false;
+      if(targetAngle - angle < 180) {
+        less180 = true;
+        driveLeftA.set(-1);
+        driveRightA.set(1);
+      } else {
+        driveLeftA.set(1);
+        driveRightA.set(-1);
+      }
+      while((Timer.getFPGATimestamp() - tempTime) < Math.pow(10, -10)) {}
+      double prevAngularVelocity = 0.0;
+      double angularVelocity = (angle - tempAngle) / (Timer.getFPGATimestamp() - tempTime);
+      double angularAccel = (angularVelocity - prevAngularVelocity) / (Timer.getFPGATimestamp() - tempTime);
       tempAngle = angle;
       tempTime = Timer.getFPGATimestamp();
-    }
-
-    //Might need to be 0 and -1
-    if(less180) {
-      driveLeftA.set(1);
-      driveRightA.set(-1);
-    } else {
-      driveLeftA.set(-1);
-      driveRightA.set(1);
-    }
-
-    while(Math.abs(targetAngle - angle) <= Constants.angleTolerance) {}
-
-    driveLeftA.set(0);
-    driveRightA.set(0);
-    }
-
-    public boolean isOB(double aPositionX, double aPositionZ) {
-      for(int i = 0; i < Constants.OBX.length; i++) {
-        if(aPositionX >= Constants.OBX[i][0] && aPositionX <= Constants.OBX[i][1] && aPositionZ >= Constants.OBZ[i][0] && aPositionZ <= Constants.OBZ[i][1]) {
-          return true;
-        }
+      //Might have to change to quarter-circle calculations instead
+      while(Math.abs(targetAngle - (angle + (((angularVelocity / angularAccel) * angularVelocity) / 2.0))) > Constants.angleTolerance) {
+        prevAngularVelocity = angularVelocity;
+        angularVelocity += (angle - tempAngle) / (Timer.getFPGATimestamp() - tempTime);
+        angularAccel += (angularVelocity - prevAngularVelocity) / (Timer.getFPGATimestamp() - tempTime);
+        tempAngle = angle;
+        tempTime = Timer.getFPGATimestamp();
       }
-  
-      return false;
-    }
+      //Might need to be 0 and -1
+      if(less180) {
+        driveLeftA.set(1);
+        driveRightA.set(-1);
+      } else {
+        driveLeftA.set(-1);
+        driveRightA.set(1);
+      }
+      while(Math.abs(targetAngle - angle) <= Constants.angleTolerance) {}
+      driveLeftA.set(0);
+      driveRightA.set(0);
   }
+
+  public boolean isOB(double aPositionX, double aPositionZ) {
+    for(int i = 0; i < Constants.OBX.length; i++) {
+      if(aPositionX >= Constants.OBX[i][0] && aPositionX <= Constants.OBX[i][1] && aPositionZ >= Constants.OBZ[i][0] && aPositionZ <= Constants.OBZ[i][1]) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+
+  public void teeter(double a) {
+
+  }
+}
