@@ -215,14 +215,17 @@ public class Robot extends TimedRobot {
     SmartDashboard.putBoolean("Go For Auto", true);
     goForAuto = SmartDashboard.getBoolean("Go For Auto", true);
 
-    // accelerometers
-    SmartDashboard.putNumber("accelerometer X", 0);
-    SmartDashboard.putNumber("accelerometer Z", 0);
-    SmartDashboard.putNumber("accelerometer Y", 0);
-    SmartDashboard.putNumber("Velocity X (left/right)", velocityX);
-    SmartDashboard.putNumber("Velocity Z (Forwards/Backwards)", velocityZ);
-    SmartDashboard.putNumber("Position X (left/right)", positionX);
-    SmartDashboard.putNumber("Position Z (Forwards/Backwards)", positionZ);
+    // SmartDashboard
+    SmartDashboard.putNumber("Acceleration X", 0);
+    SmartDashboard.putNumber("Acceleration Z", 0);
+    SmartDashboard.putNumber("Acceleration Y", 0);
+    SmartDashboard.putNumber("Velocity X", velocityX);
+    SmartDashboard.putNumber("Velocity Z", velocityZ);
+    SmartDashboard.putNumber("Velocity Y", velocityY);
+    SmartDashboard.putNumber("Position X", positionX);
+    SmartDashboard.putNumber("Position Z", positionZ);
+    SmartDashboard.putNumber("Position Y", positionY);
+    SmartDashboard.putNumber("Angular Acceleration", angularAccel);
     SmartDashboard.putNumber("Angular Velocity", angularVelocity);
     SmartDashboard.putNumber("Angle", angle);
     SmartDashboard.putNumber("arm potentiometer", armPotentiometer.get());
@@ -242,6 +245,9 @@ public class Robot extends TimedRobot {
     accelThread = new Thread(() -> {
       while(1 != 0) {
         int numReceived = 0;
+        accelX = 0;
+        accelY = 0;
+        accelZ = 0;
 
         for(double tempTime = Timer.getFPGATimestamp(); Timer.getFPGATimestamp() - tempTime < 0.025; tempTime = tempTime) {
           accelX += accelerometer.getWorldLinearAccelX() * Constants.GProportion;
@@ -264,7 +270,7 @@ public class Robot extends TimedRobot {
         double prevVelocity = angularVelocity;
         angle = accelerometer.getYaw() < 0 ? accelerometer.getYaw() + 360.0 : accelerometer.getYaw();
         angularVelocity += (angle - prevAngle) / (Timer.getFPGATimestamp() - accelTime);
-        angularAccel += (prevVelocity - angularVelocity) / (Timer.getFPGATimestamp() - accelTime);
+        angularAccel += (angularVelocity - prevVelocity) / (Timer.getFPGATimestamp() - accelTime);
 
         accelTime = Timer.getFPGATimestamp();
       }
@@ -415,7 +421,6 @@ public class Robot extends TimedRobot {
   /** This function is called periodically during operator control. */
   @Override
   public void teleopPeriodic() {
-    //accelThread.start();
     //disable and enable
     
 
@@ -535,13 +540,16 @@ public class Robot extends TimedRobot {
     }
 
     //Reading measurements
-    SmartDashboard.putNumber("accelerometer X", accelX);
-    SmartDashboard.putNumber("accelerometer Z", accelZ);
-    SmartDashboard.putNumber("accelerometer Y", accelY);
-    SmartDashboard.putNumber("Velocity X (left/right)", velocityX);
-    SmartDashboard.putNumber("Velocity Z (Forwards/Backwards)", velocityZ);
-    SmartDashboard.putNumber("Position X (left/right)", positionX);
-    SmartDashboard.putNumber("Position Z (Forwards/Backwards)", positionZ);
+    SmartDashboard.putNumber("Acceleration X", 0);
+    SmartDashboard.putNumber("Acceleration Z", 0);
+    SmartDashboard.putNumber("Acceleration Y", 0);
+    SmartDashboard.putNumber("Velocity X", velocityX);
+    SmartDashboard.putNumber("Velocity Z", velocityZ);
+    SmartDashboard.putNumber("Velocity Y", velocityY);
+    SmartDashboard.putNumber("Position X", positionX);
+    SmartDashboard.putNumber("Position Z", positionZ);
+    SmartDashboard.putNumber("Position Y", positionY);
+    SmartDashboard.putNumber("Angular Acceleration", angularAccel);
     SmartDashboard.putNumber("Angular Velocity", angularVelocity);
     SmartDashboard.putNumber("Angle", angle);
     SmartDashboard.putNumber("arm potentiometer", armPotentiometer.get());
@@ -595,7 +603,6 @@ public class Robot extends TimedRobot {
     //Oh boohoo I'm going to cry
   }
   
-  //PRECONDITION: The robot IS NOT moving and is in front of the teeter totter
   public void balanceOnTeeter(double time, boolean left, boolean middle, boolean right) {
     double z1 = Constants.teeterCornersZ[1];
     double x1 = Constants.teeterCornersX[1];
