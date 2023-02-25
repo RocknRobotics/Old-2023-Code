@@ -247,7 +247,7 @@ public class Robot extends TimedRobot {
           accelX += accelerometer.getWorldLinearAccelX() * Constants.GProportion;
           accelY += accelerometer.getWorldLinearAccelY() * Constants.GProportion;
           accelZ += accelerometer.getWorldLinearAccelZ() * Constants.GProportion;
-          numReceieved++;
+          numReceived++;
         }
 
         accelX /= (double) numReceived;
@@ -361,7 +361,7 @@ public class Robot extends TimedRobot {
     }
 
     //This and other instances of -1 drive power might have to be changed to 1
-    goTo(Constants.autoPieceX[station - 1], Constants.autoPieceZ[station - 1]);
+    goTo(Constants.autoPieceX[station - 1], Constants.autoPieceZ[station - 1], 180.0);
       
     if(SmartDashboard.getBoolean("Grab Cone", true)) {
       SmartDashboard.putBoolean("Grab Cone", false);
@@ -371,14 +371,7 @@ public class Robot extends TimedRobot {
       grabCube();
     }
 
-    goTo(Constants.autoTeeterX, Constants.autoTeeterZ);
-
-    orient(0);
-       
-    //Points for docking are give 3 seconds after auto ends
-    while(Timer.getFPGATimestamp() - autoStart <= 19) {
-      goTo(Constants.teeterPositionX, positionZ);
-    }
+    balanceOnTeeter(14.9, false, true, false);
   }
 
   /** This function is called periodically during autonomous. */
@@ -574,7 +567,7 @@ public class Robot extends TimedRobot {
     targetArmAngle = Constants.topConeAngle;
     targetExtensionLength = Constants.topArmExtention;
 
-    armAngleThread.start(Constants.topConeAngle);
+    armAngleThread.start();
     armExtensionThread.start();
 
     clawSolenoid1.set(DoubleSolenoid.Value.kReverse);
