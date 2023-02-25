@@ -4,6 +4,7 @@ public class Constants
 {
     public static final double RampUp = 2;
 
+    public static final double GProportion = 9.80665;
     public static final double accelProportion = 1.0;
     //Position of game piece to pick up from station
     //index 0 == station 1, index 1 == 2, and index 2 == 3
