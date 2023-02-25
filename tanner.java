@@ -83,9 +83,9 @@ public class Robot extends TimedRobot {
   // accelerometer
   //Parameter order
   //SPI.Port---The port used to connect to the navX (can be a I2C.Port instead) (this might just be a number, I'm not sure)
-  //int---the bitrate of the sensor (max 2,000,000)
+  //int---the bitrate of the sensor (max 2,000,000) (excluded if only two parameters)
   //int---the update rate of the sensor sending us data (4 - 200)
-  AHRS accelerometer = new AHRS(0, 0, 0);
+  AHRS accelerometer = new AHRS(0, 200);
   double accelX = 0.0;
   double accelY = 0.0;
   double accelZ = 0.0;
@@ -243,7 +243,7 @@ public class Robot extends TimedRobot {
       while(1 != 0) {
         int numReceived = 0;
 
-        for(double tempTime = Timer.getFPGATimestamp(); Timer.getFPGATimestamp() - tempTime < Math.pow(10, -5); tempTime = tempTime) {
+        for(double tempTime = Timer.getFPGATimestamp(); Timer.getFPGATimestamp() - tempTime < 0.025; tempTime = tempTime) {
           accelX += accelerometer.getWorldLinearAccelX() * Constants.GProportion;
           accelY += accelerometer.getWorldLinearAccelY() * Constants.GProportion;
           accelZ += accelerometer.getWorldLinearAccelZ() * Constants.GProportion;
