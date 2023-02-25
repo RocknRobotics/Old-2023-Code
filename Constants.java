@@ -4,6 +4,12 @@ public class Constants
 {
     public static final double RampUp = 2;
 
+    public static final double armAngleTolerance = 0.0;
+    public static final double armLengthTolerance = 0.0;
+
+    public static final double topConeAngle = 0.424;
+    public static final double topArmExtention = 0.645;
+
     public static final double GProportion = 9.80665;
     public static final double accelProportion = 1.0;
     //Position of game piece to pick up from station

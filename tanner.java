@@ -133,7 +133,10 @@ public class Robot extends TimedRobot {
   AnalogPotentiometer armExtensionPotentiometer = new AnalogPotentiometer(1);
 
   //Arm threads
-  Thread scoreConeTop;
+  Thread armAngleThread;
+  double targetArmAngle = 0.0;
+  Thread armExtensionThread;
+  double targetExtensionLength = 0.0;
 
   //Controller
   PS4Controller ps1 = new PS4Controller(0);
@@ -259,7 +262,7 @@ public class Robot extends TimedRobot {
 
         double prevAngle = angle;
         double prevVelocity = angularVelocity;
-        angle = accelerometer.getYaw();
+        angle = accelerometer.getYaw() < 0 ? accelerometer.getYaw() + 360.0 : accelerometer.getYaw();
         angularVelocity += (angle - prevAngle) / (Timer.getFPGATimestamp() - accelTime);
         angularAccel += (prevVelocity - angularVelocity) / (Timer.getFPGATimestamp() - accelTime);
       }
@@ -290,11 +293,36 @@ public class Robot extends TimedRobot {
     });
     //Low priority thread; minor increases in time between running shouldn't affect it too much
     accelThread.setPriority(Thread.MIN_PRIORITY);
+    accelThread.setDaemon(true);
     accelThread.start();
 
-    scoreConeTop = new Thread(() -> {
-      
+    armAngleThread = new Thread(() -> {
+      while(Math.abs(armPotentiometer.get() - targetArmAngle) > Constants.armAngleTolerance) {
+        if(armPotentiometer.get() < targetArmAngle) {
+          armActuator.set(-1);
+        } else {
+          armActuator.set(1);
+        }
+      }
+
+      armActuator.set(0);
     });
+    armAngleThread.setPriority(Thread.MIN_PRIORITY);
+    armAngleThread.setDaemon(true);
+
+    armExtensionThread = new Thread(() -> {
+      while(Math.abs(armExtension.get() - targetExtensionLength) > Constants.armLengthTolerance) {
+        if(armExtension.get() < targetExtensionLength) {
+          armExtension.set(-1);
+        } else {
+          armExtension.set(1);
+        }
+      }
+
+      armExtension.set(0);
+    });
+    armExtensionThread.setPriority(Thread.MIN_PRIORITY);
+    armExtensionThread.setDaemon(true);
   }
 
   @Override
@@ -543,22 +571,11 @@ public class Robot extends TimedRobot {
   }
 
   public void scoreConeTop() {
-    //Code for scoring a cone
-    while (armPotentiometer.get() < 0.424) {
-      armActuator.set(-1);
-      if (armExtensionPotentiometer.get() < 0.645) {
-        armExtension.set(-1);
-      }
-    }
-    while (armPotentiometer.get() > 0.424) {
-      armActuator.set(1);
-      if (armExtensionPotentiometer.get() < 0.645) {
-        armExtension.set(-1);
-      }
-    }
-    while (armExtensionPotentiometer.get() < 0.64) {
-      armExtension.set(-1);
-    }
+    targetArmAngle = Constants.topConeAngle;
+    targetExtensionLength = Constants.topArmExtention;
+
+    armAngleThread.start(Constants.topConeAngle);
+    armExtensionThread.start();
 
     clawSolenoid1.set(DoubleSolenoid.Value.kReverse);
     clawSolenoid2.set(DoubleSolenoid.Value.kReverse);
@@ -597,14 +614,14 @@ public class Robot extends TimedRobot {
     if(left) {
       if(Math.sqrt(Math.pow(z1 - positionZ, 2) + Math.pow(x1 - positionX, 2)) < 
       Math.sqrt(Math.pow(z2 - positionZ, 2) + Math.pow(x2 - positionX, 2))) {
-        goTo(z1, x1, 0.0);
+        goTo(z1, x1, 180.0);
       } else {
-        goTo(z2, x2, 180.0);
+        goTo(z2, x2, 0.0);
       }
 
     } else if(middle) {
       if(x0 - positionX < x3 - positionX) {
-        goTo(x0, ((z1 - z0) / 2.0) + z0, 0.0);
+        goTo(x0, ((z1 - z0) / 2.0) + z0, 180.0);
       } else {
         goTo(x3, ((z1 - z0) / 2.0) + z0, 0.0);
       }
@@ -686,19 +703,19 @@ public class Robot extends TimedRobot {
         while((Math.abs(targetX - positionX) <= Constants.xPositionTolerance && Math.abs(targetZ - positionZ) > Constants.zPositionTolerance)
         || Math.abs(zLine - positionZ) > Constants.zLineTolerance) {
           if(targetX - positionX <= Constants.xPositionTolerance) {
-            if(Math.abs((positionZ < targetZ ? 90.0: 270.0) - angle) >= Constants.angleTolerance) {
-              orient(positionZ < targetZ ? 90.0: 270.0);
+            if(Math.abs((positionZ < targetZ ? 270.0: 90.0) - angle) >= Constants.angleTolerance) {
+              orient(positionZ < targetZ ? 270.0: 90.0);
             }
           } else {
-            if(Math.abs((positionZ < zLine ? 90.0 : 270.0) - angle) >= Constants.angleTolerance) {
-              orient(positionZ < zLine ? 90.0 : 270.0);
+            if(Math.abs((positionZ < zLine ? 270.0 : 90.0) - angle) >= Constants.angleTolerance) {
+              orient(positionZ < zLine ? 270.0 : 90.0);
             }
           }
           driveLeftA.set(1);
           driveRightA.set(1);
         }
-        if(Math.abs((targetX > positionX ? 180.0 : 0.0) - angle) > Constants.angleTolerance) {
-          orient(targetX > positionX ? 180.0 : 0.0);
+        if(Math.abs((targetX > positionX ? 0.0 : 180.0) - angle) > Constants.angleTolerance) {
+          orient(targetX > positionX ? 0.0 : 180.0);
         }
         driveLeftA.set(1);
         driveRightA.set(1);
