@@ -355,11 +355,11 @@ public class Robot extends TimedRobot {
     if(SmartDashboard.getBoolean("Has Cone", true)) {
       //I'm not entirely sure but I'm hoping this will reset the variable value
       SmartDashboard.putBoolean("Has Cone", false);
-      scoreCone();
+      scoreConeTop();
     } else if(SmartDashboard.getBoolean("Has Cube", true)) {
       //I might change this to listen to the controller to know when it has a cube/cone and stuff, it depends
       SmartDashboard.putBoolean("Has Cube", false);
-      scoreCube();
+      scoreCubeTop();
     }
 
     //This and other instances of -1 drive power might have to be changed to 1
@@ -529,8 +529,8 @@ public class Robot extends TimedRobot {
       }
     }
 
-    //Drivers MUST have the robot completely stopped sometime during the last 15 seconds for the robot to auto teeter. They also must stop it in front of the docking station
-    if(Timer.getFPGATimestamp() - autoStart >= 135 && accelerometer.getX() == 0 && accelerometer.getZ() == 0) {
+    //We should probably change this to be caused by a button press instead
+    if(Timer.getFPGATimestamp() - autoStart >= 135) {
       balanceOnTeeter (149.9, false, true, false);
     }
 
