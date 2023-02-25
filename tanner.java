@@ -265,6 +265,8 @@ public class Robot extends TimedRobot {
         angle = accelerometer.getYaw() < 0 ? accelerometer.getYaw() + 360.0 : accelerometer.getYaw();
         angularVelocity += (angle - prevAngle) / (Timer.getFPGATimestamp() - accelTime);
         angularAccel += (prevVelocity - angularVelocity) / (Timer.getFPGATimestamp() - accelTime);
+
+        accelTime = Timer.getFPGATimestamp();
       }
       /*//Right Riemann, if this is too innaccurate then create another set of variables to store previous velocity/position
       //and do the Middle (or do a trapezoidal if you're feeling fancy)
@@ -529,13 +531,13 @@ public class Robot extends TimedRobot {
 
     //Drivers MUST have the robot completely stopped sometime during the last 15 seconds for the robot to auto teeter. They also must stop it in front of the docking station
     if(Timer.getFPGATimestamp() - autoStart >= 135 && accelerometer.getX() == 0 && accelerometer.getZ() == 0) {
-      teeter(150.0);
+      balanceOnTeeter (149.9, false, true, false);
     }
 
     //Reading measurements
-    SmartDashboard.putNumber("accelerometer X", accelerometer.getX());
-    SmartDashboard.putNumber("accelerometer Z", accelerometer.getZ());
-    SmartDashboard.putNumber("accelerometer Y", accelerometer.getY());
+    SmartDashboard.putNumber("accelerometer X", accelX);
+    SmartDashboard.putNumber("accelerometer Z", accelZ);
+    SmartDashboard.putNumber("accelerometer Y", accelY);
     SmartDashboard.putNumber("Velocity X (left/right)", velocityX);
     SmartDashboard.putNumber("Velocity Z (Forwards/Backwards)", velocityZ);
     SmartDashboard.putNumber("Position X (left/right)", positionX);
