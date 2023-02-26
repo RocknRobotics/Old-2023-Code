@@ -700,35 +700,35 @@ public class Robot extends TimedRobot {
     }
     double slope = (newPositionX - positionX) / (newPositionY - positionY);
     double tempX = positionX;
-    double tempZ = positionZ;
-    ArrayList<Double> curvePointsZ = new ArrayList<Double>();
+    double tempY = positionY;
+    ArrayList<Double> curvePointsY = new ArrayList<Double>();
     ArrayList<Double> curvePointsX = new ArrayList<Double>();
-    for(int i = 0; i < Constants.OBZ.length; i++) {
-      if(tempZ < Constants.OBZ[i][0] && newPositionZ > Constants.OBZ[i][1]) {
-        double startX = (Constants.OBZ[i][0] - tempZ) * slope + tempX;
-        double endX = (Constants.OBZ[i][1] - tempZ) * slope + tempX;
+    for(int i = 0; i < Constants.OBY.length; i++) {
+      if(tempY < Constants.OBY[i][0] && newPositionY > Constants.OBY[i][1]) {
+        double startX = (Constants.OBY[i][0] - tempY) * slope + tempX;
+        double endX = (Constants.OBY[i][1] - tempY) * slope + tempX;
         if((startX >= Constants.OBX[i][0] && startX <= Constants.OBX[i][1]) || (endX >= Constants.OBX[i][0] && endX <= Constants.OBX[i][1])) {
-          curvePointsZ.add(tempZ);
+          curvePointsZ.add(tempY);
           curvePointsX.add(tempX);
-          if(newPositionZ < positionZ) {
-            curvePointsZ.add(Constants.OBZ[i][1]);
-            tempZ = Constants.OBZ[i][1];
-            if(Constants.OBZ[i][0] > newPositionZ) {
-              curvePointsZ.add(Constants.OBZ[i][0]);
-              tempZ = Constants.OBZ[i][0];
+          if(newPositionY < positionY) {
+            curvePointsY.add(Constants.OBY[i][1]);
+            tempY = Constants.OBY[i][1];
+            if(Constants.OBY[i][0] > newPositionY) {
+              curvePointsY.add(Constants.OBY[i][0]);
+              tempY = Constants.OBY[i][0];
             }
           } else {
-            curvePointsZ.add(Constants.OBZ[i][0]);
-            tempZ = Constants.OBZ[i][0];
-            if(Constants.OBZ[i][1] < newPositionZ) {
-              curvePointsZ.add(Constants.OBZ[i][1]);
-              tempZ = Constants.OBZ[i][1];
+            curvePointsY.add(Constants.OBY[i][0]);
+            tempY = Constants.OBY[i][0];
+            if(Constants.OBY[i][1] < newPositionY) {
+              curvePointsY.add(Constants.OBY[i][1]);
+              tempY = Constants.OBY[i][1];
             }
           }
-          if(isOB(Constants.OBZ[i][0], Constants.OBX[i][0] - 1.0)) {
+          if(isOB(Constants.OBY[i][0], Constants.OBX[i][0] - 1.0)) {
             curvePointsX.add(Constants.OBX[i][1]);
             tempX = Constants.OBX[i][1];
-          } else if(isOB(Constants.OBZ[i][0], Constants.OBX[i][1] - 1.0)) {
+          } else if(isOB(Constants.OBY[i][0], Constants.OBX[i][1] - 1.0)) {
             curvePointsX.add(Constants.OBX[i][0]);
             tempX = Constants.OBX[i][0];
           } else if(Math.abs(startX - Constants.OBX[i][0]) < Math.abs(startX - Constants.OBX[i][1])) {
@@ -739,22 +739,22 @@ public class Robot extends TimedRobot {
             tempX = Constants.OBX[i][1];
           }
           
-          if(curvePointsX.size() < curvePointsZ.size()) {
+          if(curvePointsX.size() < curvePointsY.size()) {
             curvePointsX.add(curvePointsX.get(curvePointsX.size() - 1));
           }
         }
       }
     }
-    curvePointsZ.add(newPositionZ);
+    curvePointsY.add(newPositionY);
     curvePointsX.add(newPositionX);
-    while(curvePointsZ.size() > 0) {
+    while(curvePointsY.size() > 0) {
       double currTime = Timer.getFPGATimestamp();
-      double targetZ = curvePointsZ.remove(0);
+      double targetY = curvePointsY.remove(0);
       double targetX = curvePointsX.remove(0);
-      double zLine = positionZ;
-      while(Math.abs(targetX - positionX) > Constants.xPositionTolerance && Math.abs(targetZ - positionZ) > Constants.zPositionTolerance) {
-        while((Math.abs(targetX - positionX) <= Constants.xPositionTolerance && Math.abs(targetZ - positionZ) > Constants.zPositionTolerance)
-        || Math.abs(zLine - positionZ) > Constants.zLineTolerance) {
+      double yLine = positionY;
+      while(Math.abs(targetX - positionX) > Constants.xPositionTolerance && Math.abs(targetY - positionY) > Constants.yPositionTolerance) {
+        while((Math.abs(targetX - positionX) <= Constants.xPositionTolerance && Math.abs(targetY - positionY) > Constants.yPositionTolerance)
+        || Math.abs(yLine - positionZ) > Constants.zLineTolerance) {
           if(targetX - positionX <= Constants.xPositionTolerance) {
             if(Math.abs((positionZ < targetZ ? 270.0: 90.0) - angle) >= Constants.angleTolerance) {
               orient(positionZ < targetZ ? 270.0: 90.0);
@@ -817,9 +817,9 @@ public class Robot extends TimedRobot {
       driveRightA.set(0);
   }
 
-  public boolean isOB(double aPositionX, double aPositionZ) {
+  public boolean isOB(double aPositionX, double aPositionY) {
     for(int i = 0; i < Constants.OBX.length; i++) {
-      if(aPositionX >= Constants.OBX[i][0] && aPositionX <= Constants.OBX[i][1] && aPositionZ >= Constants.OBZ[i][0] && aPositionZ <= Constants.OBZ[i][1]) {
+      if(aPositionX >= Constants.OBX[i][0] && aPositionX <= Constants.OBX[i][1] && aPositionY >= Constants.OBY[i][0] && aPositionY <= Constants.OBY[i][1]) {
         return true;
       }
     }
