@@ -694,11 +694,11 @@ public class Robot extends TimedRobot {
     }
   }
 
-  public void goTo(double newPositionX, double newPositionZ, double newAngle) {
-    if(isOB(newPositionX, newPositionZ)) {
+  public void goTo(double newPositionX, double newPositionY, double newAngle) {
+    if(isOB(newPositionX, newPositionY)) {
       return;
     }
-    double slope = (newPositionX - positionX) / (newPositionZ - positionZ);
+    double slope = (newPositionX - positionX) / (newPositionY - positionY);
     double tempX = positionX;
     double tempZ = positionZ;
     ArrayList<Double> curvePointsZ = new ArrayList<Double>();
