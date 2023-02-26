@@ -708,7 +708,7 @@ public class Robot extends TimedRobot {
         double startX = (Constants.OBY[i][0] - tempY) * slope + tempX;
         double endX = (Constants.OBY[i][1] - tempY) * slope + tempX;
         if((startX >= Constants.OBX[i][0] && startX <= Constants.OBX[i][1]) || (endX >= Constants.OBX[i][0] && endX <= Constants.OBX[i][1])) {
-          curvePointsZ.add(tempY);
+          curvePointsY.add(tempY);
           curvePointsX.add(tempX);
           if(newPositionY < positionY) {
             curvePointsY.add(Constants.OBY[i][1]);
