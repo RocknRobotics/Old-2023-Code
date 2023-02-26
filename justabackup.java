@@ -655,42 +655,42 @@ public class Robot extends TimedRobot {
   
   //PRECONDITION: The robot IS NOT moving and is in front of the teeter totter
   public void balanceOnTeeter(double time, boolean left, boolean middle, boolean right) {
-    double z1 = Constants.teeterCornersZ[1];
+    double y1 = Constants.teeterCornersY[1];
     double x1 = Constants.teeterCornersX[1];
-    double z2 = Constants.teeterCornersZ[2];
+    double y2 = Constants.teeterCornersY[2];
     double x2 = Constants.teeterCornersX[2];
-    double z3 = Constants.teeterCornersZ[3];
+    double y3 = Constants.teeterCornersY[3];
     double x3 = Constants.teeterCornersX[3];
-    double z0 = Constants.teeterCornersZ[0];
+    double y0 = Constants.teeterCornersY[0];
     double x0 = Constants.teeterCornersX[0];
     
     if(left) {
-      if(Math.sqrt(Math.pow(z1 - positionZ, 2) + Math.pow(x1 - positionX, 2)) < 
-      Math.sqrt(Math.pow(z2 - positionZ, 2) + Math.pow(x2 - positionX, 2))) {
-        goTo(z1, x1, 180.0);
+      if(Math.sqrt(Math.pow(y1 - positionY, 2) + Math.pow(x1 - positionX, 2)) < 
+      Math.sqrt(Math.pow(y2 - positionY, 2) + Math.pow(x2 - positionX, 2))) {
+        goTo(y1, x1, 180.0);
       } else {
-        goTo(z2, x2, 0.0);
+        goTo(y2, x2, 0.0);
       }
 
     } else if(middle) {
       if(x0 - positionX < x3 - positionX) {
-        goTo(x0, ((z1 - z0) / 2.0) + z0, 180.0);
+        goTo(x0, ((y1 - y0) / 2.0) + y0, 180.0);
       } else {
-        goTo(x3, ((z1 - z0) / 2.0) + z0, 0.0);
+        goTo(x3, ((y1 - y0) / 2.0) + y0, 0.0);
       }
 
     } else if(right) {
-      if(Math.sqrt(Math.pow(z3 - positionZ, 2) + Math.pow(x3 - positionX, 2)) < 
-      Math.sqrt(Math.pow(z0 - positionZ, 2) + Math.pow(x0 - positionX, 2))) {
-        goTo(z3, x3, 0.0);
+      if(Math.sqrt(Math.pow(y3 - positionY, 2) + Math.pow(x3 - positionX, 2)) < 
+      Math.sqrt(Math.pow(y0 - positionY, 2) + Math.pow(x0 - positionX, 2))) {
+        goTo(y3, x3, 0.0);
       } else {
-        goTo(z0, x0, 180.0);
+        goTo(y0, x0, 180.0);
       }
 
     }
 
     while(Timer.getFPGATimestamp() - autoStart < time) {
-      goTo(Constants.teeterPositionX, positionZ, angle);
+      goTo(Constants.teeterPositionX, positionY, angle);
     }
   }
 
