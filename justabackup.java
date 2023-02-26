@@ -266,9 +266,9 @@ public class Robot extends TimedRobot {
 
         double prevAngle = angle;
         double prevAngularVelocity = angularVelocity;
-        angle = accelerometer.getFusedHeading();
-        angularVelocity += (angle - prevAngle > 180 ? -1 * (prevAngle - angle) : angle - prevAngle) / (Timer.getFPGATimestamp() - accelTime);
-        angularAccel += (angularVelocity - prevAngularVelocity > 180 ? -1 * (prevAngularVelocity - angularVelocity) : angularVelocity - prevAngularVelocity) / (Timer.getFPGATimestamp() - accelTime);
+        angle = accelerometer.getYaw() < 0 ? accelerometer.getYaw() + 360 : accelerometer.getYaw();
+        angularVelocity = (angle - prevAngle > 180 ? -1 * (prevAngle - angle) : angle - prevAngle) / (Timer.getFPGATimestamp() - accelTime);
+        angularAccel = (angularVelocity - prevAngularVelocity > 180 ? -1 * (prevAngularVelocity - angularVelocity) : angularVelocity - prevAngularVelocity) / (Timer.getFPGATimestamp() - accelTime);
 
         accelTime = Timer.getFPGATimestamp();
 
@@ -361,17 +361,21 @@ public class Robot extends TimedRobot {
 
     int station = -1;
     //Maybe it's Z, one of them won't change
-    positionX = 0.0;
+    if(Constants.blueAlliance) {
+      positionX = 1.38;
+    } else {
+      positionX = 16.54 - 1.38;
+    }
 
     if(SmartDashboard.getBoolean("Station 1", true)) {
       station = 1;
-      positionZ = 0.0;
-    } else if(SmartDashboard.getBoolean("Station 1", true)) {
+      positionY = 0.325;
+    } else if(SmartDashboard.getBoolean("Station 2", true)) {
       station = 2;
-      positionZ = 0.0;
-    } else if(SmartDashboard.getBoolean("Station 1", true)) {
+      positionY = 2.085;
+    } else if(SmartDashboard.getBoolean("Station 3", true)) {
       station = 3;
-      positionZ = 0.0;
+      positionY = 4.955;
     }
 
     if(SmartDashboard.getBoolean("Has Cone", true)) {
@@ -385,7 +389,7 @@ public class Robot extends TimedRobot {
     }
 
     //This and other instances of -1 drive power might have to be changed to 1
-    goTo(Constants.autoPieceX[station - 1], Constants.autoPieceZ[station - 1], 180.0);
+    goTo(Constants.autoPieceX, Constants.autoPieceY[station - 1], 180.0);
       
     if(SmartDashboard.getBoolean("Grab Cone", true)) {
       SmartDashboard.putBoolean("Grab Cone", false);
@@ -600,7 +604,6 @@ public class Robot extends TimedRobot {
     SmartDashboard.putNumber("arm potentiometer", armPotentiometer.get());
     SmartDashboard.putNumber("arm extension", armExtensionPotentiometer.get());
 
-    System.out.println(cameraServo.getAngle() + " - " + cameraServo.get());
   }
 
   @Override
