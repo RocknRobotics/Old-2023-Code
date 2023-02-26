@@ -55,13 +55,15 @@ public class Constants
     //0 is top right---goes counter clockwise
     //Charge station is 247 cm wide (x) and 193 cm deep (y)
     //Center is 251 from far edge of grid tape line and centered in the width of the community
-    public static final double[] teeterCornersY = new double[] {}; 
+    //Grid tape is deep
+    //Middle of community is 549 cm
+    public static final double[] teeterCornersY = new double[] {2.51 + (1.93 / 2.0), 2.51 + (1.93 / 2.0), 2.51 - (1.93 / 2.0), 2.51 - (1.93 / 2.0)};
 
     public static final double zTeeterClearance = 0.0;
 
     public static final double xTeeterClearance = 0.0;
 
-    public static final double[] teeterCornersX = new double[] {};
+    public static final double[] teeterCornersX = new double[] {5.49 - (2.47 / 2.0), 5.49 + (2.47 / 2.0), 5.49 + (2.47 / 2.0), 5.49 - (2.47 / 2.0)};
 
     public static final double autoTeeterX = 0;
 
