@@ -16,7 +16,7 @@ public class Constants
     public static final double accelProportion = 1.0;
     //Position of game piece to pick up from station
     //index 0 == station 1, index 1 == 2, and index 2 == 3
-    public static final double[] autoPieceY = new double[] {0.0, 0.0, 0.0};
+    public static final double[] autoPieceY = new double[] {0.92, 2.14, 4.58};
     public static final double autoPieceX = 5.4;
     //Teeter midline, might be Z instead
     public static final double teeterPositionX = 0.0;
@@ -53,7 +53,9 @@ public class Constants
     public static final double zLineTolerance = 0.0;
 
     //0 is top right---goes counter clockwise
-    public static final double[] teeterCornersZ = new double[] {};
+    //Charge station is 247 cm wide (x) and 193 cm deep (y)
+    //Center is 251 from far edge of grid tape line and centered in the width of the community
+    public static final double[] teeterCornersY = new double[] {}; 
 
     public static final double zTeeterClearance = 0.0;
 
