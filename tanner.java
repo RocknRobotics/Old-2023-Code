@@ -73,6 +73,9 @@ public class Robot extends TimedRobot {
   //Arm Extension 
   CANSparkMax armExtension = new CANSparkMax(8, MotorType.kBrushed);
 
+  //Camera Servo
+  Servo cameraServo = new Servo(0);
+
   //Pneumatics
   PneumaticsControlModule PneumaticsControl = new PneumaticsControlModule();
   Compressor PneumaticsCompressor = new Compressor(PneumaticsModuleType.CTREPCM);
@@ -148,6 +151,11 @@ public class Robot extends TimedRobot {
   UsbCamera bottomCamera;
   NetworkTableEntry cameraSelection;
   boolean topcam;
+  CVSink topImgs;
+  CVSink bottomImgs;
+  Thread cameraThread;
+  //Lets hope I can get this to work
+  ApriltagDetector myDetector = new AprilTagDetector();
 
 
   double prev = 0;
@@ -162,6 +170,9 @@ public class Robot extends TimedRobot {
 
  //Station (starting position) and cone/cube
   int station = -1;
+
+  //Will change based on the alliance
+  ArrayList<AprilTag> fieldTags = Constants.theLayout.getTags();
 
   /**
    * This function is run when the robot is first started up and should be used
@@ -209,6 +220,9 @@ public class Robot extends TimedRobot {
     cameraSelection = NetworkTableInstance.getDefault().getTable("").getEntry("CameraSelection");
     cameraSelection.setString(bottomCamera.getName());
     topcam = false;
+    topImgs = CameraServer.getVideo("Top");
+    bottomImgs = CameraServer.getVideo("Bottom");
+    myDetector.addFamily("16h5", 0);
 
     // add a thing on the dashboard to turn off auto if needed
     // SmartDashboard.put
@@ -331,6 +345,36 @@ public class Robot extends TimedRobot {
     });
     armExtensionThread.setPriority(Thread.MIN_PRIORITY);
     armExtensionThread.setDaemon(true);
+
+    //It might be wishful thinking hoping this doesn't crash the computer again
+    cameraThread = new Thread(() -> {
+      Mat img;
+      topImgs.grabFrame(img);
+
+      AprilTagDetection[] detectedTags = AprilTagDetector.detect(img);
+
+      for(AprilTagDetection aTag: detectedTags) {
+        boolean right = false;
+        double usableX;
+        double usableY;
+
+        if(Math.abs(aTag.getCornerX(1) - aTag.getCenterX()) < Math.abs(aTag.getCornerX(3) - aTag.getCenterX())) {
+          usableX = aTag.getCornerX(1);
+          usableY = aTag.getCornerY(1);
+        } else {
+          usableX = aTag.getCornerX(3);
+          usableY = aTag.getCornerY(3);
+        }
+
+        double legX = Math.abs(aTag.getCenterX() - usableX);
+        double legY = Math.abs(aTag.getCenterY() - usableY);
+        double hypotenuse = Math.sqrt(Math.pow(legX, 2) + Math.pow(legY, 2));
+        double angle = (Math.cos(legY / hypotenuse) + Math.sin(legX / hypotenuse) + Math.tan(legX / legY)) / 3.0;
+      }
+
+      sleep(1000);
+    });
+    cameraThread.setDaemon(true);
   }
 
   @Override

@@ -4,6 +4,8 @@ public class Constants
 {
     public static final double RampUp = 2;
 
+    public static final boolean blueAlliance = true;
+
     public static final double armAngleTolerance = 0.0;
     public static final double armLengthTolerance = 0.0;
 
@@ -58,4 +60,6 @@ public class Constants
     public static final double xTeeterClearance = 0.0;
 
     public static final double[] teeterCornersX = new double[] {};
+
+    public static final AprilTagFieldLayout theLayout = new AprilTagFieldLayout("FieldLayout.json");
 }
