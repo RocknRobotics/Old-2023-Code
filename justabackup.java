@@ -91,10 +91,10 @@ public class Robot extends TimedRobot {
   //SPI.Port---The port used to connect to the navX (can be a I2C.Port instead) (this might just be a number, I'm not sure)
   //int---the bitrate of the sensor (max 2,000,000)
   //int---the update rate of the sensor sending us data (4 - 200)
-  AHRS accelerometer = new AHRS(Port.kMXP, (byte) 50);
-  double accelOffsetX = accelerometer.getWorldLinearAccelX();
-  double accelOffsetY = accelerometer.getWorldLinearAccelY();
-  double accelOffsetZ = accelerometer.getWorldLinearAccelZ();
+  AHRS accelerometer = new AHRS(Port.kMXP, (byte) 4);
+  double accelOffsetX = 0.0;
+  double accelOffsetY = 0.0;
+  double accelOffsetZ = 0.0;
   double accelX = 0.0;
   double accelY = 0.0;
   double accelZ = 0.0;
@@ -139,8 +139,8 @@ public class Robot extends TimedRobot {
   Thread accelThread;*/
 
   //Potentiometer
-  AnalogPotentiometer armPotentiometer = new AnalogPotentiometer(0);
-  AnalogPotentiometer armExtensionPotentiometer = new AnalogPotentiometer(1);
+  AnalogPotentiometer armPotentiometer = new AnalogPotentiometer(1);
+  AnalogPotentiometer armExtensionPotentiometer = new AnalogPotentiometer(0);
 
   //Arm threads
   Thread armAngleThread;
@@ -273,12 +273,12 @@ public class Robot extends TimedRobot {
         accelTime = Timer.getFPGATimestamp();
 
         try {
-          Thread.sleep(20);
+          Thread.sleep(250);
         } catch(InterruptedException e) {
-
+          
         }
       }
-      /*//Right Riemann, if this is too innaccurate then create another set of variables to store previous velocity/position
+      /*Right Riemann, if this is too innaccurate then create another set of variables to store previous velocity/position
       //and do the Middle (or do a trapezoidal if you're feeling fancy)
       while (1 + 6 == 7) {
         double prevZ = positionZ;
@@ -306,7 +306,7 @@ public class Robot extends TimedRobot {
     //Low priority thread; minor increases in time between running shouldn't affect it too much
     accelThread.setPriority(Thread.MIN_PRIORITY);
     accelThread.setDaemon(true);
-    //accelThread.start();
+    accelThread.start();
 
     armAngleThread = new Thread(() -> {
       while(Math.abs(armPotentiometer.get() - targetArmAngle) > Constants.armAngleTolerance) {
@@ -351,10 +351,54 @@ public class Robot extends TimedRobot {
 
   @Override
   public void autonomousInit() {
-    accelerometer.zeroYaw();
+    //accelerometer.zeroYaw();
     // get a time for auton start to do events based on time later
     autoStart = Timer.getFPGATimestamp();
     // check dashboard icon to ensure good to do auto
+
+    targetArmAngle = 0.5;
+    armAngleThread.start();
+    targetExtensionLength = 0.755;
+    armExtensionThread.start();
+
+    clawSolenoid1.set(DoubleSolenoid.Value.kReverse);
+    clawSolenoid2.set(DoubleSolenoid.Value.kReverse);
+
+    targetArmAngle = 0.05;
+    armAngleThread.start();
+    targetExtensionLength = 0.15;
+    armExtensionThread.start();
+
+    double currTime = Timer.getFPGATimestamp();
+    driveLeftA.set(-1);
+    driveRightA.set(-1);
+
+    while(Timer.getFPGATimestamp() - currTime < Constants.autoBackup) {
+      try {
+        Thread.sleep(10);
+      } catch(InterruptedException e) {
+
+      }
+    }
+
+    currTime = Timer.getFPGATimestamp();
+
+    if(SmartDashboard.getBoolean("Station 1", true)) {
+      station = 1;
+
+      if(Constants.blueAlliance) {
+        driveLeftA.set(1);
+        driveRightA.set(-1);
+      } else {
+        driveLeftA.set(-1);
+        driveRightA.set(1);
+      }
+    } else if(SmartDashboard.getBoolean("Station 2", true)) {
+      station = 2;
+
+      
+    }
+
     if(!SmartDashboard.getBoolean("Go For Auto", true)) {
       return;
     }
@@ -389,7 +433,7 @@ public class Robot extends TimedRobot {
     }
 
     //This and other instances of -1 drive power might have to be changed to 1
-    goTo(Constants.autoPieceX, Constants.autoPieceY[station - 1], 180.0);
+    //goTo(Constants.autoPieceX, Constants.autoPieceY[station - 1], 180.0);
       
     if(SmartDashboard.getBoolean("Grab Cone", true)) {
       SmartDashboard.putBoolean("Grab Cone", false);
@@ -399,7 +443,7 @@ public class Robot extends TimedRobot {
       grabCube();
     }
 
-  balanceOnTeeter(14.9, false, true, false);
+  //balanceOnTeeter(14.9, false, true, false);
   }
 
   /** This function is called periodically during autonomous. */
@@ -436,7 +480,7 @@ public class Robot extends TimedRobot {
   /** This function is called once when teleop is enabled. */
   @Override
   public void teleopInit() {
-    accelerometer.resetDisplacement();
+    //accelerometer.resetDisplacement();
 
   }
 
@@ -505,16 +549,16 @@ public class Robot extends TimedRobot {
     //lowest is 
     if (!stopped2) {
       if (ps2.getL2Axis() > 0.5) {
-        armActuator.set(1);
-      } else if (ps2.getR2Axis() > 0.5) {
         armActuator.set(-1);
+      } else if (ps2.getR2Axis() > 0.5) {
+        armActuator.set(1);
       } else {
         armActuator.set(0);
       }
 
-      if (ps2.getLeftY() < -0.5 && armExtensionPotentiometer.get() < 0.645) {
+      if (ps2.getLeftY() < -0.5 && armExtensionPotentiometer.get() < 0.755) {
         armExtension.set(1);
-      } else if (ps2.getLeftY() > 0.5 ) {
+      } else if (ps2.getLeftY() > 0.5 && armExtensionPotentiometer.get() > 0.05) {
         armExtension.set(-1);
       } else {
         armExtension.set(0);
@@ -568,13 +612,13 @@ public class Robot extends TimedRobot {
       }
 
       if (ps2.getShareButtonPressed()) {
-        balanceOnTeeter(100000, false, true, false);
+        //balanceOnTeeter(100000, false, true, false);
       }
     }
 
     //Drivers MUST have the robot completely stopped sometime during the last 15 seconds for the robot to auto teeter. They also must stop it in front of the docking station
     if(Timer.getFPGATimestamp() - autoStart >= 135) {
-      balanceOnTeeter(149.9, false, true, false);
+      //balanceOnTeeter(149.9, false, true, false);
     }
 
     /*positionX += accelerometer.getVelocityX() * accelTime;
@@ -652,9 +696,14 @@ public class Robot extends TimedRobot {
   public void grabCube() {
     //Oh boohoo I'm going to cry
   }
+
+  public void balanceOnTeeter() {
+    
+  }
+}
   
   //PRECONDITION: The robot IS NOT moving and is in front of the teeter totter
-  public void balanceOnTeeter(double time, boolean left, boolean middle, boolean right) {
+  /*public void balanceOnTeeter(double time, boolean left, boolean middle, boolean right) {
     double y1 = Constants.teeterCornersY[1];
     double x1 = Constants.teeterCornersX[1];
     double y2 = Constants.teeterCornersY[2];
@@ -787,19 +836,19 @@ public class Robot extends TimedRobot {
         driveLeftA.set(1);
         driveRightA.set(-1);
       }
-      /**while((Timer.getFPGATimestamp() - tempTime) < Math.pow(10, -10)) {}
+      while((Timer.getFPGATimestamp() - tempTime) < Math.pow(10, -10)) {}
       double prevAngularVelocity = 0.0;
       double angularVelocity = (angle - tempAngle) / (Timer.getFPGATimestamp() - tempTime);
       double angularAccel = (angularVelocity - prevAngularVelocity) / (Timer.getFPGATimestamp() - tempTime);
       tempAngle = angle;
       tempTime = Timer.getFPGATimestamp();*/
       //Might have to change to quarter-circle calculations instead
-      while(Math.abs(targetAngle - (angle + (((angularVelocity / angularAccel) * angularVelocity) / 2.0))) > Constants.angleTolerance) {
+      //while(Math.abs(targetAngle - (angle + (((angularVelocity / angularAccel) * angularVelocity) / 2.0))) > Constants.angleTolerance) {
         /**prevAngularVelocity = angularVelocity;
         angularVelocity += (angle - tempAngle) / (Timer.getFPGATimestamp() - tempTime);
         angularAccel += (angularVelocity - prevAngularVelocity) / (Timer.getFPGATimestamp() - tempTime);
         tempAngle = angle;
-        tempTime = Timer.getFPGATimestamp();*/
+        tempTime = Timer.getFPGATimestamp();
       }
       //Might need to be 0 and -1
       if(less180) {
@@ -822,5 +871,5 @@ public class Robot extends TimedRobot {
     }
 
     return false;
-  }
-}
+  }*/
+//}
