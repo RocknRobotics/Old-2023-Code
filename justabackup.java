@@ -754,14 +754,14 @@ public class Robot extends TimedRobot {
       double yLine = positionY;
       while(Math.abs(targetX - positionX) > Constants.xPositionTolerance && Math.abs(targetY - positionY) > Constants.yPositionTolerance) {
         while((Math.abs(targetX - positionX) <= Constants.xPositionTolerance && Math.abs(targetY - positionY) > Constants.yPositionTolerance)
-        || Math.abs(yLine - positionZ) > Constants.zLineTolerance) {
+        || Math.abs(yLine - positionZ) > Constants.yLineTolerance) {
           if(targetX - positionX <= Constants.xPositionTolerance) {
-            if(Math.abs((positionZ < targetZ ? 270.0: 90.0) - angle) >= Constants.angleTolerance) {
-              orient(positionZ < targetZ ? 270.0: 90.0);
+            if(Math.abs((positionY < targetY ? 270.0: 90.0) - angle) >= Constants.angleTolerance) {
+              orient(positionY < targetY ? 270.0: 90.0);
             }
           } else {
-            if(Math.abs((positionZ < zLine ? 270.0 : 90.0) - angle) >= Constants.angleTolerance) {
-              orient(positionZ < zLine ? 270.0 : 90.0);
+            if(Math.abs((positionY < yLine ? 270.0 : 90.0) - angle) >= Constants.angleTolerance) {
+              orient(positionY < yLine ? 270.0 : 90.0);
             }
           }
           driveLeftA.set(1);
