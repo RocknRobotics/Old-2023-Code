@@ -748,7 +748,6 @@ public class Robot extends TimedRobot {
     curvePointsY.add(newPositionY);
     curvePointsX.add(newPositionX);
     while(curvePointsY.size() > 0) {
-      double currTime = Timer.getFPGATimestamp();
       double targetY = curvePointsY.remove(0);
       double targetX = curvePointsX.remove(0);
       double yLine = positionY;
@@ -779,8 +778,6 @@ public class Robot extends TimedRobot {
   }
 
   public void orient(double targetAngle) {
-      double tempAngle = angle;
-      double tempTime = Timer.getFPGATimestamp();
       boolean less180 = false;
       if(targetAngle - angle < 180) {
         less180 = true;
