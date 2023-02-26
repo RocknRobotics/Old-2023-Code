@@ -19,7 +19,7 @@ public class Constants
     public static final double[] autoPieceY = new double[] {0.92, 2.14, 4.58};
     public static final double autoPieceX = 5.4;
     //Teeter midline, might be Z instead
-    public static final double teeterPositionY = 2.51;
+    public static final double teeterPositionX = 2.51;
 
     //The amount of acceleration turning the motors to 1 gives
     public static final double accelConst = 1.0;
@@ -53,17 +53,17 @@ public class Constants
     public static final double zLineTolerance = 0.0;
 
     //0 is top right---goes counter clockwise
-    //Charge station is 247 cm wide (x) and 193 cm deep (y)
+    //Charge station is 247 cm wide (y) and 193 cm deep (x)
     //Center is 251 from far edge of grid tape line and centered in the width of the community
     //Grid tape is deep
     //Middle of community is 549 cm
-    public static final double[] teeterCornersY = new double[] {2.51 + (1.93 / 2.0), 2.51 + (1.93 / 2.0), 2.51 - (1.93 / 2.0), 2.51 - (1.93 / 2.0)};
+    public static final double[] teeterCornersX = new double[] {2.51 + (1.93 / 2.0), 2.51 + (1.93 / 2.0), 2.51 - (1.93 / 2.0), 2.51 - (1.93 / 2.0)};
 
     public static final double zTeeterClearance = 0.0;
 
     public static final double xTeeterClearance = 0.0;
 
-    public static final double[] teeterCornersX = new double[] {5.49 - (2.47 / 2.0), 5.49 + (2.47 / 2.0), 5.49 + (2.47 / 2.0), 5.49 - (2.47 / 2.0)};
+    public static final double[] teeterCornersY = new double[] {5.49 - (2.47 / 2.0), 5.49 + (2.47 / 2.0), 5.49 + (2.47 / 2.0), 5.49 - (2.47 / 2.0)};
 
     public static final double autoTeeterX = 0;
 
