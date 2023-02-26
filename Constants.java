@@ -19,7 +19,7 @@ public class Constants
     public static final double[] autoPieceY = new double[] {0.92, 2.14, 4.58};
     public static final double autoPieceX = 5.4;
     //Teeter midline, might be Z instead
-    public static final double teeterPositionX = 0.0;
+    public static final double teeterPositionY = 2.51;
 
     //The amount of acceleration turning the motors to 1 gives
     public static final double accelConst = 1.0;
