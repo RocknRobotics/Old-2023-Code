@@ -545,9 +545,9 @@ public class Robot extends TimedRobot {
       }
 
       if (ps2.getR3Button()) {
-        PneumaticsCompressor.start();
+        PneumaticsCompressor.enableDigital();
       } else if (ps2.getL3Button()) {
-        PneumaticsCompressor.stop();
+        PneumaticsCompressor.disable();
       }
 
       if (ps2.getRightY() > 0.5) {
