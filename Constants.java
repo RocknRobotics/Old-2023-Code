@@ -57,13 +57,13 @@ public class Constants
     //Center is 251 from far edge of grid tape line and centered in the width of the community
     //Grid tape is deep
     //Middle of community is 549 cm
-    public static final double[] teeterCornersX = new double[] {2.51 + (1.93 / 2.0), 2.51 + (1.93 / 2.0), 2.51 - (1.93 / 2.0), 2.51 - (1.93 / 2.0)};
+    public static final double yTeeterClearance = 1.0;
 
-    public static final double yTeeterClearance = 0.0;
+    public static final double xTeeterClearance = 1.0;
+    
+    public static final double[] teeterCornersX = new double[] {2.51 + (1.93 / 2.0) + xTeeterClearance, 2.51 + (1.93 / 2.0) + xTeeterClearance, 2.51 - (1.93 / 2.0) - xTeeterClearance, 2.51 - (1.93 / 2.0) - xTeeterClearance};
 
-    public static final double xTeeterClearance = 0.0;
-
-    public static final double[] teeterCornersY = new double[] {5.49 - (2.47 / 2.0), 5.49 + (2.47 / 2.0), 5.49 + (2.47 / 2.0), 5.49 - (2.47 / 2.0)};
+    public static final double[] teeterCornersY = new double[] {5.49 - (2.47 / 2.0) + yTeeterClearance, 5.49 + (2.47 / 2.0) - yTeeterClearance, 5.49 + (2.47 / 2.0) - yTeeterClearance, 5.49 - (2.47 / 2.0) + yTeeterClearance};
 
     public static final double autoTeeterX = 0;
 
