@@ -31,26 +31,26 @@ public class Constants
     //Out-of-Bounds---Stores the X ranges and Z ranges of areas we don't want the robot to go to.
     //Each row stores two ranges---The lowest at index 0, and the highest at index 1
     public static final double[][] OBX = new double[][] {{}};
-    public static final double[][] OBZ = new double[][] {{}};
+    public static final double[][] OBY = new double[][] {{}};
 
     //Under ideal cirumstances these are arrays relating to the OB arrays, but this should suffice for this year's game
     //Clearance around an obstacle
     public static final double xFeetClearance = 1.0;
     //Clearance before an obstacle
-    public static final double zFeetClearance = 1.0;
+    public static final double yFeetClearance = 1.0;
 
     //The amount the position can be off by at any point of alignment on the curve
     public static final double xCurveTolerance = 0.1;
-    public static final double zCurveTolerance = 0.1;
+    public static final double yCurveTolerance = 0.1;
 
     //The amount the position can be off of the target position
-    public static final double zPositionTolerance = 0.05;
+    public static final double yPositionTolerance = 0.05;
     public static final double xPositionTolerance = 0.05;
     public static final double positionTolerance = 0.05;
 
     public static final double angleTolerance = 0.0;
 
-    public static final double zLineTolerance = 0.0;
+    public static final double yLineTolerance = 0.0;
 
     //0 is top right---goes counter clockwise
     //Charge station is 247 cm wide (y) and 193 cm deep (x)
@@ -59,7 +59,7 @@ public class Constants
     //Middle of community is 549 cm
     public static final double[] teeterCornersX = new double[] {2.51 + (1.93 / 2.0), 2.51 + (1.93 / 2.0), 2.51 - (1.93 / 2.0), 2.51 - (1.93 / 2.0)};
 
-    public static final double zTeeterClearance = 0.0;
+    public static final double yTeeterClearance = 0.0;
 
     public static final double xTeeterClearance = 0.0;
 
@@ -67,5 +67,5 @@ public class Constants
 
     public static final double autoTeeterX = 0;
 
-    public static final double autoTeeterZ = 0;
+    public static final double autoTeeterY = 0;
 }
