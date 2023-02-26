@@ -4,20 +4,20 @@ public class Constants
 {
     public static final double RampUp = 2;
 
-    public static final boolean blueAlliance = true;
+    public static boolean blueAlliance = true;
 
     public static final double armAngleTolerance = 0.0;
     public static final double armLengthTolerance = 0.0;
 
-    public static final double topConeAngle = 0.424;
+    public static final double topConeAngle = 0.465;
     public static final double topArmExtention = 0.645;
 
     public static final double GProportion = 9.80665;
     public static final double accelProportion = 1.0;
     //Position of game piece to pick up from station
     //index 0 == station 1, index 1 == 2, and index 2 == 3
-    public static final double[] autoPieceX = new double[] {0.0, 0.0, 0.0};
-    public static final double[] autoPieceZ = new double[] {0.0, 0.0, 0.0};
+    public static final double[] autoPieceY = new double[] {0.0, 0.0, 0.0};
+    public static final double autoPieceX = 5.4;
     //Teeter midline, might be Z instead
     public static final double teeterPositionX = 0.0;
 
@@ -61,5 +61,7 @@ public class Constants
 
     public static final double[] teeterCornersX = new double[] {};
 
-    public static final AprilTagFieldLayout theLayout = new AprilTagFieldLayout("FieldLayout.json");
+    public static final double autoTeeterX = 0;
+
+    public static final double autoTeeterZ = 0;
 }
