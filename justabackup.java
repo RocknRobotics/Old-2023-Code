@@ -91,7 +91,7 @@ public class Robot extends TimedRobot {
   //SPI.Port---The port used to connect to the navX (can be a I2C.Port instead) (this might just be a number, I'm not sure)
   //int---the bitrate of the sensor (max 2,000,000)
   //int---the update rate of the sensor sending us data (4 - 200)
-  AHRS accelerometer = new AHRS(Port.kMXP, (byte) 4);
+  //AHRS accelerometer = new AHRS(Port.kMXP, (byte) 4);
   double accelOffsetX = 0.0;
   double accelOffsetY = 0.0;
   double accelOffsetZ = 0.0;
@@ -173,6 +173,14 @@ public class Robot extends TimedRobot {
  //Station (starting position) and cone/cube
   int station = -1;
 
+  //Hopefully Raspberry Pi code
+  Thread piThread;
+  SerialPort raspBerry = new SerialPort(9600, Port.kMXP);
+  //Raspberry Pi will house accelerometers and usb cameras
+  //Raspberry Pi will only return acceleration, velocity, position, angular accel, angular velocity, and angle
+  //(8 byte accel, 8 byte velocity, 8 byte position) * 3, 8 bytes anglular accel, 8 bytes angular velocity, 8 bytes angle
+  //96 bytes total
+
   /**
    * This function is run when the robot is first started up and should be used
    * for any
@@ -252,7 +260,7 @@ public class Robot extends TimedRobot {
     SmartDashboard.putBoolean("Cone", false);
     SmartDashboard.putBoolean("Cube", false);
 
-    accelThread = new Thread(() -> {
+    /*accelThread = new Thread(() -> {
       while(1 != 0) {
         accelX = accelerometer.getWorldLinearAccelX() - accelOffsetX;
         accelY = accelerometer.getWorldLinearAccelY() - accelOffsetY;
@@ -278,35 +286,10 @@ public class Robot extends TimedRobot {
           
         }
       }
-      /*Right Riemann, if this is too innaccurate then create another set of variables to store previous velocity/position
-      //and do the Middle (or do a trapezoidal if you're feeling fancy)
-      while (1 + 6 == 7) {
-        double prevZ = positionZ;
-        velocityX += (Timer.getFPGATimestamp() - accelTime) * accelerometer.getX();
-        positionX += (Timer.getFPGATimestamp() - accelTime) * velocityX;
-        velocityZ += (Timer.getFPGATimestamp() - accelTime) * accelerometer.getZ();
-        positionZ += (Timer.getFPGATimestamp() - accelTime) * velocityZ;
-        accelTime = Timer.getFPGATimestamp();
-
-        //What does get return? Need to figure this out
-        leftVelocity += driveLeftA.get() * Constants.accelProportion * ((Timer.getFPGATimestamp() - accelTime));
-        rightVelocity += driveRightA.get() * Constants.accelProportion * ((Timer.getFPGATimestamp() - accelTime));
-        angularVelocity = (leftVelocity - rightVelocity) / Constants.robotRadius;
-        angle += angularVelocity * (Timer.getFPGATimestamp() - accelTime);
-
-        velocity = Math.sqrt(Math.pow(velocityX, 2) + Math.pow(velocityZ, 2));
-        position = Math.sqrt(Math.pow(positionX, 2) + Math.pow(positionZ, 2));
-      }
-      //try {
-        //Thread.sleep(1);
-      //} catch(InterruptedException e) {
-
-      //}*/
     });
-    //Low priority thread; minor increases in time between running shouldn't affect it too much
     accelThread.setPriority(Thread.MIN_PRIORITY);
     accelThread.setDaemon(true);
-    accelThread.start();
+    accelThread.start();*/
 
     armAngleThread = new Thread(() -> {
       while(Math.abs(armPotentiometer.get() - targetArmAngle) > Constants.armAngleTolerance) {
@@ -347,6 +330,38 @@ public class Robot extends TimedRobot {
     });
     armExtensionThread.setPriority(Thread.MIN_PRIORITY);
     armExtensionThread.setDaemon(true);
+
+    piThread = new Thread(() -> {
+      while(Timer.getFPGATimestamp() - autoStart < 150) {
+        if(raspBerry.getBytesReceived() < 96) {
+          bytes[] data = raspBerry.read(96);
+          
+          ByteBuffer converter = ByteBuffer.wrap(mini);
+
+          accelX = converter.getDouble();
+          accelY = converter.getDouble();
+          accelZ = converter.getDouble();
+          velocityX = converter.getDouble();
+          velocityY = converter.getDouble();
+          velocityZ = converter.getDouble();
+          positionX = converter.getDouble();
+          positionY = converter.getDouble();
+          positionZ = converter.getDouble();
+          angularAccel = converter.getDouble();
+          angularVelocity = converter.getDouble();
+          angle = converter.getDouble();
+        }
+
+        try {
+          Thread.sleep(100);
+        } catch(InterruptedException e) {
+
+        }
+      }
+    });
+    piThread.setPriority(THREAD.MIN_PRIORITY);
+    piThread.setDaemon(true);
+    piThread.start();
   }
 
   @Override
@@ -395,31 +410,11 @@ public class Robot extends TimedRobot {
       }
     } else if(SmartDashboard.getBoolean("Station 2", true)) {
       station = 2;
-
       
     }
 
     if(!SmartDashboard.getBoolean("Go For Auto", true)) {
       return;
-    }
-
-    int station = -1;
-    //Maybe it's Z, one of them won't change
-    if(Constants.blueAlliance) {
-      positionX = 1.38;
-    } else {
-      positionX = 16.54 - 1.38;
-    }
-
-    if(SmartDashboard.getBoolean("Station 1", true)) {
-      station = 1;
-      positionY = 0.325;
-    } else if(SmartDashboard.getBoolean("Station 2", true)) {
-      station = 2;
-      positionY = 2.085;
-    } else if(SmartDashboard.getBoolean("Station 3", true)) {
-      station = 3;
-      positionY = 4.955;
     }
 
     if(SmartDashboard.getBoolean("Has Cone", true)) {
@@ -612,25 +607,14 @@ public class Robot extends TimedRobot {
       }
 
       if (ps2.getShareButtonPressed()) {
-        //balanceOnTeeter(100000, false, true, false);
+        balanceOnTeeter(100000, false, true, false);
       }
     }
 
     //Drivers MUST have the robot completely stopped sometime during the last 15 seconds for the robot to auto teeter. They also must stop it in front of the docking station
     if(Timer.getFPGATimestamp() - autoStart >= 135) {
-      //balanceOnTeeter(149.9, false, true, false);
+      balanceOnTeeter(149.9, false, true, false);
     }
-
-    /*positionX += accelerometer.getVelocityX() * accelTime;
-    positionY += accelerometer.getVelocityY() * accelTime;
-    positionZ += accelerometer.getVelocityZ() * accelTime;
-
-    double prevAngle = angle;
-    double prevVelocity = angularVelocity;
-    angle = accelerometer.getYaw() < 0 ? accelerometer.getYaw() + 360.0 : accelerometer.getYaw();
-    angularVelocity = (angle - prevAngle) / (Timer.getFPGATimestamp() - accelTime);
-    angularAccel = (prevVelocity - angularVelocity) / (Timer.getFPGATimestamp() - accelTime);
-    accelTime = Timer.getFPGATimestamp();*/
 
     //Reading measurements
     SmartDashboard.putNumber("accelerometer X", accelX);
@@ -674,6 +658,32 @@ public class Robot extends TimedRobot {
     armAngleThread.start();
     armExtensionThread.start();
 
+    if(Constants.blueAlliance) {
+      while(Math.abs(0.0 - angle) > Constants.angleTolerance && Math.abs(1.38 - positionX) > Constants.xPositionTolerance) {
+        try {
+          Thread.sleep(100);
+        } catch(InterruptedException e) {
+
+        }
+      }
+    } else {
+      while(Math.abs(180.0 - angle) > Constants.angleTolerance && Math.abs((16.54 - 1.38) - positionX) > Constants.xPositionTolerance) {
+        try {
+          Thread.sleep(100);
+        } catch(InterruptedException e) {
+
+        }
+      }
+    }
+
+    while(Math.abs(armPotentiometer.get() - targetArmAngle) > Constants.armAngleTolerance && Math.abs(armExtensionPotentiometer.get() - targetExtensionLength) > Constants.armLengthTolerance) {
+      try {
+        Thread.sleep(100);
+      } catch(InterruptedException e) {
+
+      }
+    }
+
     clawSolenoid1.set(DoubleSolenoid.Value.kReverse);
     clawSolenoid2.set(DoubleSolenoid.Value.kReverse);
   }
@@ -700,10 +710,9 @@ public class Robot extends TimedRobot {
   public void balanceOnTeeter() {
     
   }
-}
   
   //PRECONDITION: The robot IS NOT moving and is in front of the teeter totter
-  /*public void balanceOnTeeter(double time, boolean left, boolean middle, boolean right) {
+  public void balanceOnTeeter(double time, boolean left, boolean middle, boolean right) {
     double y1 = Constants.teeterCornersY[1];
     double x1 = Constants.teeterCornersX[1];
     double y2 = Constants.teeterCornersY[2];
@@ -747,21 +756,27 @@ public class Robot extends TimedRobot {
     if(isOB(newPositionX, newPositionY)) {
       return;
     }
+
     double slope = (newPositionX - positionX) / (newPositionY - positionY);
     double tempX = positionX;
     double tempY = positionY;
+
     ArrayList<Double> curvePointsY = new ArrayList<Double>();
     ArrayList<Double> curvePointsX = new ArrayList<Double>();
+
     for(int i = 0; i < Constants.OBY.length; i++) {
       if(tempY < Constants.OBY[i][0] && newPositionY > Constants.OBY[i][1]) {
         double startX = (Constants.OBY[i][0] - tempY) * slope + tempX;
         double endX = (Constants.OBY[i][1] - tempY) * slope + tempX;
+
         if((startX >= Constants.OBX[i][0] && startX <= Constants.OBX[i][1]) || (endX >= Constants.OBX[i][0] && endX <= Constants.OBX[i][1])) {
           curvePointsY.add(tempY);
           curvePointsX.add(tempX);
+
           if(newPositionY < positionY) {
             curvePointsY.add(Constants.OBY[i][1]);
             tempY = Constants.OBY[i][1];
+
             if(Constants.OBY[i][0] > newPositionY) {
               curvePointsY.add(Constants.OBY[i][0]);
               tempY = Constants.OBY[i][0];
@@ -769,6 +784,7 @@ public class Robot extends TimedRobot {
           } else {
             curvePointsY.add(Constants.OBY[i][0]);
             tempY = Constants.OBY[i][0];
+
             if(Constants.OBY[i][1] < newPositionY) {
               curvePointsY.add(Constants.OBY[i][1]);
               tempY = Constants.OBY[i][1];
@@ -777,12 +793,15 @@ public class Robot extends TimedRobot {
           if(isOB(Constants.OBY[i][0], Constants.OBX[i][0] - 1.0)) {
             curvePointsX.add(Constants.OBX[i][1]);
             tempX = Constants.OBX[i][1];
+
           } else if(isOB(Constants.OBY[i][0], Constants.OBX[i][1] - 1.0)) {
             curvePointsX.add(Constants.OBX[i][0]);
             tempX = Constants.OBX[i][0];
+
           } else if(Math.abs(startX - Constants.OBX[i][0]) < Math.abs(startX - Constants.OBX[i][1])) {
             curvePointsX.add(Constants.OBX[i][0]);
             tempX = Constants.OBX[i][0];
+
           } else {
             curvePointsX.add(Constants.OBX[i][1]);
             tempX = Constants.OBX[i][1];
@@ -794,12 +813,15 @@ public class Robot extends TimedRobot {
         }
       }
     }
+
     curvePointsY.add(newPositionY);
     curvePointsX.add(newPositionX);
+
     while(curvePointsY.size() > 0) {
       double targetY = curvePointsY.remove(0);
       double targetX = curvePointsX.remove(0);
       double yLine = positionY;
+
       while(Math.abs(targetX - positionX) > Constants.xPositionTolerance && Math.abs(targetY - positionY) > Constants.yPositionTolerance) {
         while((Math.abs(targetX - positionX) <= Constants.xPositionTolerance && Math.abs(targetY - positionY) > Constants.yPositionTolerance)
         || Math.abs(yLine - positionZ) > Constants.yLineTolerance) {
@@ -812,14 +834,29 @@ public class Robot extends TimedRobot {
               orient(positionY < yLine ? 270.0 : 90.0);
             }
           }
+
           driveLeftA.set(1);
           driveRightA.set(1);
+
+          try {
+            Thread.sleep(50);
+          } catch(InterruptedException e) {
+
+          }
         }
+
         if(Math.abs((targetX > positionX ? 0.0 : 180.0) - angle) > Constants.angleTolerance) {
           orient(targetX > positionX ? 0.0 : 180.0);
         }
+
         driveLeftA.set(1);
         driveRightA.set(1);
+
+        try {
+          Thread.sleep(50);
+        } catch(InterruptedException e) {
+
+        }
       }
     }
     orient(newAngle);
@@ -828,37 +865,44 @@ public class Robot extends TimedRobot {
 
   public void orient(double targetAngle) {
       boolean less180 = false;
+
       if(targetAngle - angle < 180) {
         less180 = true;
         driveLeftA.set(-1);
         driveRightA.set(1);
+
       } else {
         driveLeftA.set(1);
         driveRightA.set(-1);
       }
-      while((Timer.getFPGATimestamp() - tempTime) < Math.pow(10, -10)) {}
-      double prevAngularVelocity = 0.0;
-      double angularVelocity = (angle - tempAngle) / (Timer.getFPGATimestamp() - tempTime);
-      double angularAccel = (angularVelocity - prevAngularVelocity) / (Timer.getFPGATimestamp() - tempTime);
-      tempAngle = angle;
-      tempTime = Timer.getFPGATimestamp();*/
+
       //Might have to change to quarter-circle calculations instead
-      //while(Math.abs(targetAngle - (angle + (((angularVelocity / angularAccel) * angularVelocity) / 2.0))) > Constants.angleTolerance) {
-        /**prevAngularVelocity = angularVelocity;
-        angularVelocity += (angle - tempAngle) / (Timer.getFPGATimestamp() - tempTime);
-        angularAccel += (angularVelocity - prevAngularVelocity) / (Timer.getFPGATimestamp() - tempTime);
-        tempAngle = angle;
-        tempTime = Timer.getFPGATimestamp();
+      while(Math.abs(targetAngle - (angle + (((angularVelocity / angularAccel) * angularVelocity) / 2.0))) > Constants.angleTolerance) {
+        try {
+          Thread.sleep(50);
+        } catch(InterruptedException e) {
+
+        }
       }
+
       //Might need to be 0 and -1
       if(less180) {
         driveLeftA.set(1);
         driveRightA.set(-1);
+
       } else {
         driveLeftA.set(-1);
         driveRightA.set(1);
       }
-      while(Math.abs(targetAngle - angle) <= Constants.angleTolerance) {}
+
+      while(Math.abs(targetAngle - angle) <= Constants.angleTolerance) {
+        try {
+          Thread.sleep(50);
+        } catch(InterruptedException e) {
+
+        }
+      }
+
       driveLeftA.set(0);
       driveRightA.set(0);
   }
@@ -871,5 +915,5 @@ public class Robot extends TimedRobot {
     }
 
     return false;
-  }*/
-//}
+  }
+}
