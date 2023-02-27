@@ -232,6 +232,12 @@ public class Raspberry {
                 SmartDashboard.putNumber("Angular Velocity", angularVelocity[2]);
                 SmartDashboard.putNumber("Angle", angle[2]);
             }
+            
+            try {
+                Thread.sleep(25);
+            } catch(InterruptedException e) {
+                
+            }
         });
         accel1.setDaemon(true);
         accel1.start();
@@ -420,12 +426,23 @@ public class Raspberry {
                 SmartDashboard.putNumber("Angular Velocity", angularVelocity[2]);
                 SmartDashboard.putNumber("Angle", angle[2]);
             }
+            
+            try {
+                Thread.sleep(25);
+            } catch(InterruptedException e) {
+                
+            }
         });
         accel2.setDaemon(true);
         accel2.start();
 
         vision = new Thread(() -> {
             
+            try {
+                Thread.sleep(25);
+            } catch(InterruptedException e) {
+                
+            }
         });
         vision.setDaemon(true);
         vision.start();
