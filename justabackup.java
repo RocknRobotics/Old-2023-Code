@@ -346,8 +346,6 @@ public class Robot extends TimedRobot {
     driveLeftA.set(-1);
     driveRightA.set(-1);
 
-    double currTime = Timer.getFPGATimestamp();
-
     if(SmartDashboard.getBoolean("Station 1", true)) {
       station = 1;
 
