@@ -318,30 +318,42 @@ public class Robot extends TimedRobot {
     targetExtensionLength = 0.755;
     armExtensionThread.start();
 
-    clawSolenoid1.set(DoubleSolenoid.Value.kReverse);
-    clawSolenoid2.set(DoubleSolenoid.Value.kReverse);
+    //clawSolenoid1.set(DoubleSolenoid.Value.kReverse);
+    //clawSolenoid2.set(DoubleSolenoid.Value.kReverse);
 
-    targetArmAngle = 0.05;
-    armAngleThread.start();
-    targetExtensionLength = 0.15;
-    armExtensionThread.start();
+    for(double speed = -1; speed > 0; speed += 0.1) {
+      driveLeftA.set(speed);
+      driveRightA.set(speed);
 
-    double currTime = Timer.getFPGATimestamp();
-    driveLeftA.set(-1);
-    driveRightA.set(-1);
-
-    while(Timer.getFPGATimestamp() - currTime < Constants.autoBackup) {
       try {
-        Thread.sleep(10);
+        Thread.sleep(100);
       } catch(InterruptedException e) {
 
       }
     }
 
-    currTime = Timer.getFPGATimestamp();
+    driveLeftA.set(1);
+    driveRightA.set(1);
+
+    try {
+      Thread.sleep(550);
+    } catch(InterruptedException e) {
+
+    }
+
+    driveLeftA.set(-1);
+    driveRightA.set(-1);
+
+    double currTime = Timer.getFPGATimestamp();
 
     if(SmartDashboard.getBoolean("Station 1", true)) {
       station = 1;
+
+      try {
+        Thread.sleep(Constants.driveOutTime);
+      } catch(InterruptedException e) {
+
+      }
 
       if(Constants.blueAlliance) {
         driveLeftA.set(1);
@@ -350,12 +362,98 @@ public class Robot extends TimedRobot {
         driveLeftA.set(-1);
         driveRightA.set(1);
       }
+
+      try {
+        Thread.sleep(Constants.spinTime);
+      } catch(InterruptedException e) {
+
+      }
+
+      driveLeftA.set(1);
+      driveRightA.set(1);
+
+      try {
+        Thread.sleep(Constants.toTeeterTime);
+      } catch(InterruptedException e) {
+
+      }
+
+      if(Constants.blueAlliance) {
+        driveLeftA.set(-1);
+        driveRightA.set(1);
+      } else {
+        driveLeftA.set(1);
+        driveRightA.set(-1);
+      }
+
+      try {
+        Thread.sleep(Constants.spinTime);
+      } catch(InterruptedException e) {
+
+      }
     } else if(SmartDashboard.getBoolean("Station 2", true)) {
       station = 2;
-      
+
+      try {
+        Thread.sleep(Constants.overTeeterTime);
+      } catch(InterruptedException e) {
+
+      }
+    } else if(SmartDashboard.getBoolean("Station 3", true)) {
+      station = 3;
+
+      try {
+        Thread.sleep(Constants.driveOutTime);
+      } catch(InterruptedException e) {
+        
+      }
+
+      if(Constants.blueAlliance) {
+        driveLeftA.set(-1);
+        driveRightA.set(1);
+      } else {
+        driveLeftA.set(1);
+        driveRightA.set(-1);
+      }
+
+      try {
+        Thread.sleep(Constants.spinTime);
+      } catch(InterruptedException e) {
+
+      }
+
+      driveLeftA.set(1);
+      driveRightA.set(1);
+
+      try {
+        Thread.sleep(Constants.toTeeterTime);
+      } catch(InterruptedException e) {
+
+      }
+
+      if(Constants.blueAlliance) {
+        driveLeftA.set(1);
+        driveRightA.set(-1);
+      } else {
+        driveLeftA.set(-1);
+        driveRightA.set(1);
+      }
+
+      try {
+        Thread.sleep(Constants.spinTime);
+      } catch(InterruptedException e) {
+
+      }
     }
 
-    if(!SmartDashboard.getBoolean("Go For Auto", true)) {
+    driveLeftA.set(1);
+    driveRightA.set(1);
+
+    try {
+      Thread.sleep(Constants.onTeeterTime);
+    }
+
+    /*if(!SmartDashboard.getBoolean("Go For Auto", true)) {
       return;
     }
 
@@ -380,7 +478,7 @@ public class Robot extends TimedRobot {
       grabCube();
     }
 
-  //balanceOnTeeter(14.9, false, true, false);
+  //balanceOnTeeter(14.9, false, true, false);*/
   }
 
   /** This function is called periodically during autonomous. */
