@@ -280,7 +280,7 @@ public class Robot extends TimedRobot {
       armActuator.set(0);
 
       try {
-          Thread.sleep(100);
+          Thread.sleep(250);
         } catch(InterruptedException e) {
           
         }
@@ -300,7 +300,7 @@ public class Robot extends TimedRobot {
       armExtension.set(0);
 
       try {
-          Thread.sleep(100);
+          Thread.sleep(250);
         } catch(InterruptedException e) {
           
         }
