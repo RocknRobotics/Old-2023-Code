@@ -108,11 +108,12 @@ public class Robot extends TimedRobot {
   double angularAccel = 0.0;
   double angularVelocity = 0.0;
   double angle = 0.0;
-  double servoAngle = 0;
 
   double accelTime = Timer.getFPGATimestamp();
 
   Thread accelThread;*/
+
+  double servoAngle = 0;
 
   //Potentiometer
   AnalogPotentiometer armPotentiometer = new AnalogPotentiometer(1);
@@ -163,7 +164,7 @@ public class Robot extends TimedRobot {
    */
   @Override
   public void robotInit() {
-    NetworkTable.setTeam(3692);
+    //NetworkTable.setTeam(3692);
     // Configure motors to turn correct direction. You may have to invert some of
     // your motors
     driveLeftA.setInverted(false);
@@ -400,9 +401,9 @@ public class Robot extends TimedRobot {
         driveRightA.set(speed);
 
         try {
-          Thread.sleep(50);
+          Thread.sleep(75);
         } catch(InterruptedException e) {
-          
+
         }
       }
     } else if(SmartDashboard.getBoolean("Station 3", true)) {
