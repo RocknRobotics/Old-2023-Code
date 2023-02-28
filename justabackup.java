@@ -163,6 +163,7 @@ public class Robot extends TimedRobot {
    */
   @Override
   public void robotInit() {
+    NetworkTable.setTeam(3692);
     // Configure motors to turn correct direction. You may have to invert some of
     // your motors
     driveLeftA.setInverted(false);
