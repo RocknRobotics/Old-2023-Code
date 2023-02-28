@@ -26,13 +26,12 @@ public class Raspberry {
     //If angle right of the arm, then the angle will be less than 180
     //If parallel to the arm, then the angle is 0
     //If directly away from the arm, then the angle is 180
-    ArrayList<Double> camAngles = new ArrayList<Double>();
-    ArrayList<Double> fx = new ArrayList<Double>();
-    ArrayList<Double> fy = new ArrayList<Double>();
-    ArrayList<Double> cx = new ArrayList<Double>();
-    ArrayList<Double> cy = new ArrayList<Double>();
-    ArrayList<Double> fromCenterX = new ArrayList<Double>();
-    ArrayList<Double> fromCenterY = new ArrayList<Double>();
+    ArrayList<Double> camAnglesX = new ArrayList<Double>();
+    ArrayList<Double> camAnglesY = new ArrayList<Double>();
+    ArrayList<Double> yResolution = new ArrayList<Double>();
+    ArrayList<Double> perPixelAngleY = new ArrayList<Double>();
+    ArrayList<Double> xResolution = new ArrayList<Double>();
+    ArrayList<Double> perPixelAngleX = new ArrayList<Double>();
     AprilTagDetector myDetector = new AprilTagDetector();
     AprilTagDetection[] myTags;
     Mat img;
@@ -84,18 +83,18 @@ public class Raspberry {
         }
 
         //Top camera specs, then bottom camera specs
-        fx.add(0.0);
-        fx.add(0.0);
-        fy.add(0.0);
-        fy.add(0.0);
-        cx.add(0.0);
-        cx.add(0.0);
-        cy.add(0.0);
-        cy.add(0.0);
-        fromCenterX.add(0.0);
-        fromCenterX.add(0.0);
-        fromCenterY.add(0.0);
-        fromCenterY.add(0.0);
+        camAnglesX.add(0.0);
+        camAnglesX.add(0.0);
+        camAnglesY.add(0.0);
+        camAnglesY.add(0.0);
+        yResolution.add(0.0);
+        yResolution.add(0.0);
+        perPixelAngleY.add(0.0);
+        perPixelAngleY.add(0.0);
+        xResolution.add(0.0);
+        xResolution.add(0.0);
+        perPixelAngleX.add(0.0);
+        perPixelAngleX.add(0.0);
 
         accel1 = new Thread(() -> {
             //Need to use byte updating
@@ -489,8 +488,8 @@ public class Raspberry {
             double totalX = 0.0;
             double totalY = 0.0;
 
-            for(CvSink aSink: mySinks) {
-                mySink.grabFrame(img);
+            for(int i = 0; i < mySink.size(); i++) {
+                mySink.get(i).grabFrame(img);
 
                 myTags = myDetector.detect(img);
 
@@ -501,9 +500,17 @@ public class Raspberry {
                 for(AprilTagDetection aTag: myTags) {
                     AprilTag currTag = theTags.get(AprilTagDetection.getId() - 1);
 
-                    double tagSize = Math.abs((currTag.getCornerX(0) - currTag.getCornerX(2)) * (currTag.getCornerY(0) - currTag.getCornerY(2)));
-
-                    //Stuff
+                    //Tag length divided by pixel length of corners to get a per pixel length
+                    double xPixelLength = 0.1524 / Math.abs(currTag.getCornerX(0) - currTag.getCornerX(1));
+                    double yPixelLength = 0.1524 / Math.abs(currTag.getCornerY(1) - currTag.getCornerY(2));
+                    
+                    //Since we know the position of the center of the tag, this is the easiest to use
+                    double yAngle = Math.abs(currTag.getCornerY(0) - currTag.getCenterY()) * perPixelAngleY;
+                    double xAngle = Math.abs(currTag.getCornerX(0) - currTag.getCenterY()) * perPixelAngleY;
+                    
+                    //Same length from center to perpendicular perimeter for all of them (3" to metres).
+                    double yLength = 0.0762;
+                    double xLength = 0.0762;
                 }
             }
 
