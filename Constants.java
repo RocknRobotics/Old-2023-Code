@@ -4,7 +4,13 @@ public class Constants
 {
     public static final double RampUp = 2;
 
-    public static boolean blueAlliance = true;
+    public static final boolean blueAlliance = true;
+
+    //Milliseconds, need to find actual values
+    public static final double driveOutTime = 100;
+    public static final double spinTime = 100;
+    public static final double overTeeterTime = 100;
+    public static final double onTeeterTime = 100;
 
     public static final double armAngleTolerance = 0.0;
     public static final double armLengthTolerance = 0.0;
