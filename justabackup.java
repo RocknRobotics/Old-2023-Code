@@ -447,11 +447,15 @@ public class Robot extends TimedRobot {
       }
     }
 
-    driveLeftA.set(1);
-    driveRightA.set(1);
+    for(double speed = 1; speed > 0; speed -= 0.1) {
+      driveLeftA.set(speed);
+      driveRightA.set(speed);
 
-    try {
-      Thread.sleep(Constants.onTeeterTime);
+      try {
+        Thread.sleep(50);
+      } catch(InterruptedException e) {
+        
+      }
     }
 
     /*if(!SmartDashboard.getBoolean("Go For Auto", true)) {
