@@ -395,10 +395,15 @@ public class Robot extends TimedRobot {
     } else if(SmartDashboard.getBoolean("Station 2", true)) {
       station = 2;
 
-      try {
-        Thread.sleep(Constants.overTeeterTime);
-      } catch(InterruptedException e) {
+      for(double speed = -1; speed < 0; speed += 0.1) {
+        driveLeftA.set(speed);
+        driveRightA.set(speed);
 
+        try {
+          Thread.sleep(50);
+        } catch(InterruptedException e) {
+          
+        }
       }
     } else if(SmartDashboard.getBoolean("Station 3", true)) {
       station = 3;
