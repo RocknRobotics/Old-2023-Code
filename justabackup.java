@@ -694,6 +694,11 @@ public class Robot extends TimedRobot {
   /** This function is called periodically during autonomous. */
   @Override
   public void autonomousPeriodic() {
+    try {
+      Thread.sleep(100);
+    } catch(InterruptedException e) {
+
+    }
     /*if (goForAuto) {
 
       // series of timed events making up the flow of auto
