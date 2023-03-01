@@ -88,58 +88,7 @@ public class Robot extends TimedRobot {
   DoubleSolenoid clawSolenoid1 = new DoubleSolenoid(0, PneumaticsModuleType.CTREPCM, 0, 1);
   DoubleSolenoid clawSolenoid2 = new DoubleSolenoid(0, PneumaticsModuleType.CTREPCM, 2, 3);
   
-
-  // accelerometer
-  //Parameter order
-  //SPI.Port---The port used to connect to the navX (can be a I2C.Port instead) (this might just be a number, I'm not sure)
-  //int---the bitrate of the sensor (max 2,000,000)
-  //int---the update rate of the sensor sending us data (4 - 200)
-  /*AHRS accelerometer = new AHRS(Port.kMXP, (byte) 50);
-  double accelOffsetX = accelerometer.getWorldLinearAccelX();
-  double accelOffsetY = accelerometer.getWorldLinearAccelY();
-  double accelOffsetZ = accelerometer.getWorldLinearAccelZ();
-  double accelX = 0.0;
-  double accelY = 0.0;
-  double accelZ = 0.0;
-  double velocityX = 0.0;
-  double velocityY = 0.0;
-  double velocityZ = 0.0;
-  double positionX = 0.0;
-  double positionY = 0.0;
-  double positionZ = 0.0;
-
-  double angularAccel = 0.0;
-  double angularVelocity = 0.0;
-  double angle = 0.0;
-  double servoAngle = 0;
-
-  double accelTime = Timer.getFPGATimestamp();*/
-
-  //Thread accelThread;
-
-  /*Accelerometer accelerometer = new BuiltInAccelerometer();
-  double prevVelocityX = 0.0;
-  double velocityX = 0.0;
-  //Need to modify this based on starting station
-  double prevPositionX = 0.0;
-  double positionX = 0.0;
-  double prevVelocityZ = 0.0;
-  double velocityZ = 0.0;
-  //Same here
-  double prevPosition = 0.0;
-  double positionZ = 0.0;
-  //Having the arm facing fowards and perpendicular to the grid is considered 0.0
-  //The left and right mototr velocities
-  double leftVelocity = 0.0;
-  double rightVelocity = 0.0;
-  double angularVelocity = 0.0;
-  double angle = 0.0;
-  //You never know what might come in handy
-  double velocity = 0.0;
-  double position = 0.0;
-  double accelTime = Timer.getFPGATimestamp();
-
-  Thread accelThread;*/
+  double servoAngle = 0;.0
 
   //Potentiometer
   AnalogPotentiometer armPotentiometer = new AnalogPotentiometer(1);
@@ -156,7 +105,6 @@ public class Robot extends TimedRobot {
   PS4Controller ps2 = new PS4Controller(1);
 
   //Camera
-  Thread m_visionThread;
   UsbCamera topCamera;
   UsbCamera bottomCamera;
   NetworkTableEntry cameraSelection;
@@ -168,10 +116,10 @@ public class Robot extends TimedRobot {
   boolean goForAuto = false;
   boolean fast = false;
   boolean closed = false;
-  public static double leftSpeed = 0;
-  public static double rightSpeed = 0;
-  //I am well aware this is essentially the least recommended way of accessing the speeds
-  //However, this is the easiest for me right now
+  double leftSpeed = 0;
+  double rightSpeed = 0;
+  Thread iPromiseThisWontBreakAnything;
+  double experimentalVelocityConstant = 0.0;
   boolean stopped1 = false;
   boolean stopped2 = false;
 
@@ -222,23 +170,25 @@ public class Robot extends TimedRobot {
     bottomCamera = CameraServer.startAutomaticCapture("Bottom", 0);
     bottomCamera.setFPS(15);
     //Need to determine if this resolution will work well
-    bottomCamera.setResolution(704, 480);
-    Main.Sinks.add(CameraServer.getVideo("Bottom"));
-    Main.widths.add(704);
-    Main.heights.add(480);
+    bottomCamera.setResolution(704, 540);
+    //I am well aware this is a very bad way of doing this, however I know this will work so that's why I'm using it
+    //I'll probably refactor after the competition
+    SmartDashboard.putNumber("Top Width", 704);
+    SmartDashboard.putNumber("Top Height", 540);
     //NEED to find experimental values for both cameras
-    Main.perPixelAngleX.add(0.0);
-    //Main.perPixelAngleY.add(0.0);
+    SmartDashboard.putNumber("Top Pixel Angle X", 0.0);
     //The angle of the camera in relation to the arm such that facing the same direction is 0.0 and facing directly opposite is 180.0
-    Main.cameraAngles.add(0.0);
+    SmartDashboard.putNumber("Top Camera Angle", 0.0);
+    MjpegServer topServer = CameraServer.addServer("Top Stream", 1181);
+
     topCamera = CameraServer.startAutomaticCapture("Top", 1);
     topCamera.setFPS(15);
-    bottomCamera.setResolution(704, 480);
-    Main.Sinks.add(CameraServer.getVideo("Top"));
-    Main.widths.add(704);
-    Main.heights.add(480);
-    Main.perPixelAngleX.add(0.0);
-    //Main.perPixelAngleY.add(0.0);
+    bottomCamera.setResolution(704, 540);
+    SmartDashboard.putNumber("Bottom Width", 704);
+    SmartDashboard.putNumber("Bottom Height", 540);
+    SmartDashboard.putNumber("Bottom Pixel Angle X", 0.0);
+    SmartDashboard.putNumber("Bottom Camera Angle", 0.0);
+    MjpegServer bottomServer = CameraServer.addServer("Bottom Stream", 1182);
 
     cameraSelection = NetworkTableInstance.getDefault().getTable("").getEntry("CameraSelection");
     cameraSelection.setString(bottomCamera.getName());
@@ -248,20 +198,6 @@ public class Robot extends TimedRobot {
     // SmartDashboard.put
     SmartDashboard.putBoolean("Go For Auto", true);
     goForAuto = SmartDashboard.getBoolean("Go For Auto", true);
-
-    // accelerometers
-    /*SmartDashboard.putNumber("accelerometer X", accelerometer.getWorldLinearAccelX());
-    SmartDashboard.putNumber("accelerometer Z", accelerometer.getWorldLinearAccelZ());
-    SmartDashboard.putNumber("accelerometer Y", accelerometer.getWorldLinearAccelY());
-    SmartDashboard.putNumber("Velocity X (left/right)", accelerometer.getVelocityX());
-    SmartDashboard.putNumber("Velocity Z (Forwards/Backwards)", accelerometer.getVelocityZ());
-    SmartDashboard.putNumber("Velocity Y (Up/Down)", accelerometer.getVelocityY());
-    SmartDashboard.putNumber("Position X (left/right)", accelerometer.getDisplacementX());
-    SmartDashboard.putNumber("Position Z (Forwards/Backwards)", accelerometer.getDisplacementZ());
-    SmartDashboard.putNumber("Position Y (Up/Down)", accelerometer.getDisplacementY());
-    SmartDashboard.putNumber("Angular Acceleration", angularAccel);
-    SmartDashboard.putNumber("Angular Velocity", angularVelocity);
-    SmartDashboard.putNumber("Angle", angle);*/
     SmartDashboard.putNumber("arm potentiometer", armPotentiometer.get());
     SmartDashboard.putNumber("arm extension", armExtensionPotentiometer.get());
 
@@ -275,62 +211,6 @@ public class Robot extends TimedRobot {
     //Cone or Cube to pick up
     SmartDashboard.putBoolean("Cone", false);
     SmartDashboard.putBoolean("Cube", false);
-
-    /*accelThread = new Thread(() -> {
-      while(1 != 0) {
-        accelX = accelerometer.getWorldLinearAccelX() - accelOffsetX;
-        accelY = accelerometer.getWorldLinearAccelY() - accelOffsetY;
-        accelZ = accelerometer.getWorldLinearAccelZ() - accelOffsetZ;
-        velocityX += (Timer.getFPGATimestamp() - accelTime) * accelX;
-        velocityY += (Timer.getFPGATimestamp() - accelTime) * accelY;
-        velocityZ += (Timer.getFPGATimestamp() - accelTime) * accelZ;
-        positionX += (Timer.getFPGATimestamp() - accelTime) * velocityX;
-        positionY += (Timer.getFPGATimestamp() - accelTime) * velocityY; 
-        positionZ += (Timer.getFPGATimestamp() - accelTime) * velocityZ;
-
-        double prevAngle = angle;
-        double prevAngularVelocity = angularVelocity;
-        angle = accelerometer.getYaw() < 0 ? accelerometer.getYaw() + 360 : accelerometer.getYaw();
-        angularVelocity = (angle - prevAngle > 180 ? -1 * (prevAngle - angle) : angle - prevAngle) / (Timer.getFPGATimestamp() - accelTime);
-        angularAccel = (angularVelocity - prevAngularVelocity > 180 ? -1 * (prevAngularVelocity - angularVelocity) : angularVelocity - prevAngularVelocity) / (Timer.getFPGATimestamp() - accelTime);
-
-        accelTime = Timer.getFPGATimestamp();
-
-        try {
-          Thread.sleep(20);
-        } catch(InterruptedException e) {
-
-        }
-      }*/
-      /*//Right Riemann, if this is too innaccurate then create another set of variables to store previous velocity/position
-      //and do the Middle (or do a trapezoidal if you're feeling fancy)
-      while (1 + 6 == 7) {
-        double prevZ = positionZ;
-        velocityX += (Timer.getFPGATimestamp() - accelTime) * accelerometer.getX();
-        positionX += (Timer.getFPGATimestamp() - accelTime) * velocityX;
-        velocityZ += (Timer.getFPGATimestamp() - accelTime) * accelerometer.getZ();
-        positionZ += (Timer.getFPGATimestamp() - accelTime) * velocityZ;
-        accelTime = Timer.getFPGATimestamp();
-
-        //What does get return? Need to figure this out
-        leftVelocity += driveLeftA.get() * Constants.accelProportion * ((Timer.getFPGATimestamp() - accelTime));
-        rightVelocity += driveRightA.get() * Constants.accelProportion * ((Timer.getFPGATimestamp() - accelTime));
-        angularVelocity = (leftVelocity - rightVelocity) / Constants.robotRadius;
-        angle += angularVelocity * (Timer.getFPGATimestamp() - accelTime);
-
-        velocity = Math.sqrt(Math.pow(velocityX, 2) + Math.pow(velocityZ, 2));
-        position = Math.sqrt(Math.pow(positionX, 2) + Math.pow(positionZ, 2));
-      }
-      //try {
-        //Thread.sleep(1);
-      //} catch(InterruptedException e) {
-
-      //}*/
-    //});
-    //Low priority thread; minor increases in time between running shouldn't affect it too much
-    //accelThread.setPriority(Thread.MIN_PRIORITY);
-    //accelThread.setDaemon(true);
-    //accelThread.start();
 
     armAngleThread = new Thread(() -> {
       while(Math.abs(armPotentiometer.get() - targetArmAngle) > Constants.armAngleTolerance) {
@@ -371,6 +251,24 @@ public class Robot extends TimedRobot {
     });
     armExtensionThread.setPriority(Thread.MIN_PRIORITY);
     armExtensionThread.setDaemon(true);
+
+    iPromiseThisWontBreakAnything = new Thread(() -> {
+      while(true) {
+        if(experimentalVelocityConstant != 0.0) {
+          SmartDashboard.putNumber("Left Speed", driveLeftA.get());
+          SmartDashboard.putNumber("Right Speed", driveRightA.get());
+        }
+
+        try {
+          Thread.sleep(50);
+        } catch(InterruptedException e) {
+
+        }
+      }
+    });
+    iPromiseThisWontBreakAnything.setPriority(Thread.MAX_PRIORITY);
+    iPromiseThisWontBreakAnything.setDaemon(true);
+    //iPromiseThisWontBreakAnything.start();
   }
 
   @Override
@@ -404,7 +302,7 @@ public class Robot extends TimedRobot {
 
         }
 
-        Main.experimentalVelocityConstant = 1.0 / ((leftAEncoder.getPosition() * leftAEncoder.getPositionConversionFactor() / (Timer.getFPGATimestamp() - currTime)) * speed);
+        experimentalVelocityConstant = 1.0 / ((leftAEncoder.getPosition() * leftAEncoder.getPositionConversionFactor() / (Timer.getFPGATimestamp() - currTime)) * speed);
       } else {
         driveLeftA.set(speed);
         driveLeftB.follow(driveLeftA);
