@@ -74,7 +74,7 @@ public class Robot extends TimedRobot {
   CANSparkMax armActuator = new CANSparkMax(7, MotorType.kBrushed);
 
   //Arm Extension 
-  CANSparkMax armExtension = new CANSparkMax(8, MotorType.kBrushed);
+  static CANSparkMax armExtension = new CANSparkMax(8, MotorType.kBrushed);
 
   //Camera Servo
   Servo cameraServo = new Servo(0);
@@ -91,10 +91,10 @@ public class Robot extends TimedRobot {
   //SPI.Port---The port used to connect to the navX (can be a I2C.Port instead) (this might just be a number, I'm not sure)
   //int---the bitrate of the sensor (max 2,000,000)
   //int---the update rate of the sensor sending us data (4 - 200)
-  /*AHRS accelerometer = new AHRS(Port.kMXP, (byte) 4);
-  double accelOffsetX = 0.0;
-  double accelOffsetY = 0.0;
-  double accelOffsetZ = 0.0;
+  AHRS accelerometer = new AHRS(Port.kMXP, (byte) 50);
+  double accelOffsetX = accelerometer.getWorldLinearAccelX();
+  double accelOffsetY = accelerometer.getWorldLinearAccelY();
+  double accelOffsetZ = accelerometer.getWorldLinearAccelZ();
   double accelX = 0.0;
   double accelY = 0.0;
   double accelZ = 0.0;
@@ -108,16 +108,39 @@ public class Robot extends TimedRobot {
   double angularAccel = 0.0;
   double angularVelocity = 0.0;
   double angle = 0.0;
+  double servoAngle = 0;
 
+  double accelTime = Timer.getFPGATimestamp();
+
+  Thread accelThread;
+
+  /*Accelerometer accelerometer = new BuiltInAccelerometer();
+  double prevVelocityX = 0.0;
+  double velocityX = 0.0;
+  //Need to modify this based on starting station
+  double prevPositionX = 0.0;
+  double positionX = 0.0;
+  double prevVelocityZ = 0.0;
+  double velocityZ = 0.0;
+  //Same here
+  double prevPosition = 0.0;
+  double positionZ = 0.0;
+  //Having the arm facing fowards and perpendicular to the grid is considered 0.0
+  //The left and right mototr velocities
+  double leftVelocity = 0.0;
+  double rightVelocity = 0.0;
+  double angularVelocity = 0.0;
+  double angle = 0.0;
+  //You never know what might come in handy
+  double velocity = 0.0;
+  double position = 0.0;
   double accelTime = Timer.getFPGATimestamp();
 
   Thread accelThread;*/
 
-  double servoAngle = 0;
-
   //Potentiometer
   AnalogPotentiometer armPotentiometer = new AnalogPotentiometer(1);
-  AnalogPotentiometer armExtensionPotentiometer = new AnalogPotentiometer(0);
+  public static AnalogPotentiometer armExtensionPotentiometer = new AnalogPotentiometer(0);
 
   //Arm threads
   Thread armAngleThread;
@@ -150,13 +173,6 @@ public class Robot extends TimedRobot {
  //Station (starting position) and cone/cube
   int station = -1;
 
-  //Hopefully Raspberry Pi code
-  //Raspberry Pi will house accelerometers and usb cameras
-  //Raspberry Pi will only return acceleration, velocity, position, angular accel, angular velocity, and angle
-  //(8 byte accel, 8 byte velocity, 8 byte position) * 3, 8 bytes anglular accel, 8 bytes angular velocity, 8 bytes angle
-  //96 bytes total
-  //Nevermind, I'll try and use network tables to update directly from the raspberry pi
-
   /**
    * This function is run when the robot is first started up and should be used
    * for any
@@ -164,7 +180,6 @@ public class Robot extends TimedRobot {
    */
   @Override
   public void robotInit() {
-    //NetworkTable.setTeam(3692);
     // Configure motors to turn correct direction. You may have to invert some of
     // your motors
     driveLeftA.setInverted(false);
@@ -200,7 +215,9 @@ public class Robot extends TimedRobot {
 
     //cameras
     bottomCamera = CameraServer.startAutomaticCapture("Bottom", 0);
+    bottomCamera.setFPS(15);
     topCamera = CameraServer.startAutomaticCapture("Top", 1);
+    topCamera.setFPS(15);
     cameraSelection = NetworkTableInstance.getDefault().getTable("").getEntry("CameraSelection");
     cameraSelection.setString(bottomCamera.getName());
     topcam = false;
@@ -211,18 +228,18 @@ public class Robot extends TimedRobot {
     goForAuto = SmartDashboard.getBoolean("Go For Auto", true);
 
     // accelerometers
-    SmartDashboard.putNumber("Acceleration X", 0.0);
-    SmartDashboard.putNumber("Acceleration Z", 0.0);
-    SmartDashboard.putNumber("Acceleration Y", 0.0);
-    SmartDashboard.putNumber("Velocity X", 0.0);
-    SmartDashboard.putNumber("Velocity Z", 0.0);
-    SmartDashboard.putNumber("Velocity Y", 0.0);
-    SmartDashboard.putNumber("Position X", 0.0);
-    SmartDashboard.putNumber("Position Z", 0.0);
-    SmartDashboard.putNumber("Position Y", 0.0);
-    SmartDashboard.putNumber("Angular Acceleration", 0.0);
-    SmartDashboard.putNumber("Angular Velocity", 0.0);
-    SmartDashboard.putNumber("Angle", 0.0);
+    SmartDashboard.putNumber("accelerometer X", accelerometer.getWorldLinearAccelX());
+    SmartDashboard.putNumber("accelerometer Z", accelerometer.getWorldLinearAccelZ());
+    SmartDashboard.putNumber("accelerometer Y", accelerometer.getWorldLinearAccelY());
+    SmartDashboard.putNumber("Velocity X (left/right)", accelerometer.getVelocityX());
+    SmartDashboard.putNumber("Velocity Z (Forwards/Backwards)", accelerometer.getVelocityZ());
+    SmartDashboard.putNumber("Velocity Y (Up/Down)", accelerometer.getVelocityY());
+    SmartDashboard.putNumber("Position X (left/right)", accelerometer.getDisplacementX());
+    SmartDashboard.putNumber("Position Z (Forwards/Backwards)", accelerometer.getDisplacementZ());
+    SmartDashboard.putNumber("Position Y (Up/Down)", accelerometer.getDisplacementY());
+    SmartDashboard.putNumber("Angular Acceleration", angularAccel);
+    SmartDashboard.putNumber("Angular Velocity", angularVelocity);
+    SmartDashboard.putNumber("Angle", angle);
     SmartDashboard.putNumber("arm potentiometer", armPotentiometer.get());
     SmartDashboard.putNumber("arm extension", armExtensionPotentiometer.get());
 
@@ -237,7 +254,7 @@ public class Robot extends TimedRobot {
     SmartDashboard.putBoolean("Cone", false);
     SmartDashboard.putBoolean("Cube", false);
 
-    /*accelThread = new Thread(() -> {
+    accelThread = new Thread(() -> {
       while(1 != 0) {
         accelX = accelerometer.getWorldLinearAccelX() - accelOffsetX;
         accelY = accelerometer.getWorldLinearAccelY() - accelOffsetY;
@@ -258,15 +275,40 @@ public class Robot extends TimedRobot {
         accelTime = Timer.getFPGATimestamp();
 
         try {
-          Thread.sleep(250);
+          Thread.sleep(20);
         } catch(InterruptedException e) {
-          
+
         }
       }
+      /*//Right Riemann, if this is too innaccurate then create another set of variables to store previous velocity/position
+      //and do the Middle (or do a trapezoidal if you're feeling fancy)
+      while (1 + 6 == 7) {
+        double prevZ = positionZ;
+        velocityX += (Timer.getFPGATimestamp() - accelTime) * accelerometer.getX();
+        positionX += (Timer.getFPGATimestamp() - accelTime) * velocityX;
+        velocityZ += (Timer.getFPGATimestamp() - accelTime) * accelerometer.getZ();
+        positionZ += (Timer.getFPGATimestamp() - accelTime) * velocityZ;
+        accelTime = Timer.getFPGATimestamp();
+
+        //What does get return? Need to figure this out
+        leftVelocity += driveLeftA.get() * Constants.accelProportion * ((Timer.getFPGATimestamp() - accelTime));
+        rightVelocity += driveRightA.get() * Constants.accelProportion * ((Timer.getFPGATimestamp() - accelTime));
+        angularVelocity = (leftVelocity - rightVelocity) / Constants.robotRadius;
+        angle += angularVelocity * (Timer.getFPGATimestamp() - accelTime);
+
+        velocity = Math.sqrt(Math.pow(velocityX, 2) + Math.pow(velocityZ, 2));
+        position = Math.sqrt(Math.pow(positionX, 2) + Math.pow(positionZ, 2));
+      }
+      //try {
+        //Thread.sleep(1);
+      //} catch(InterruptedException e) {
+
+      //}*/
     });
+    //Low priority thread; minor increases in time between running shouldn't affect it too much
     accelThread.setPriority(Thread.MIN_PRIORITY);
     accelThread.setDaemon(true);
-    accelThread.start();*/
+    //accelThread.start();
 
     armAngleThread = new Thread(() -> {
       while(Math.abs(armPotentiometer.get() - targetArmAngle) > Constants.armAngleTolerance) {
@@ -311,95 +353,238 @@ public class Robot extends TimedRobot {
 
   @Override
   public void autonomousInit() {
+    driveLeftA.setInverted(true);
+    driveLeftA.burnFlash();
+    driveLeftB.setInverted(true);
+    driveLeftB.burnFlash();
+    driveRightA.setInverted(false);
+    driveRightA.burnFlash();
+    driveRightB.setInverted(false);
+    driveRightB.burnFlash();
     // get a time for auton start to do events based on time later
     autoStart = Timer.getFPGATimestamp();
     // check dashboard icon to ensure good to do auto
 
-    targetArmAngle = 0.5;
+    /*targetArmAngle = 0.5;
     armAngleThread.start();
     targetExtensionLength = 0.755;
-    armExtensionThread.start();
+    armExtensionThread.start();*/
 
     //clawSolenoid1.set(DoubleSolenoid.Value.kReverse);
     //clawSolenoid2.set(DoubleSolenoid.Value.kReverse);
 
-    for(double speed = -1; speed > 0; speed += 0.1) {
+    for(double speed = 0; speed >= -0.4; speed -= 0.025) {
       driveLeftA.set(speed);
+      driveLeftB.follow(driveLeftA);
       driveRightA.set(speed);
+      driveRightB.follow(driveRightA);
 
       try {
-        Thread.sleep(100);
+        Thread.sleep(25);
       } catch(InterruptedException e) {
 
       }
     }
 
-    driveLeftA.set(1);
-    driveRightA.set(1);
+    /*for(double speed = 0.1; speed <= 0.3; speed += 0.025) {
+      driveLeftA.set(speed);
+      driveLeftB.follow(driveLeftA);
+      driveRightA.set(speed);
+      driveRightB.follow(driveRightA);
 
-    try {
-      Thread.sleep(550);
-    } catch(InterruptedException e) {
+      try {
+        Thread.sleep(25);
+      } catch(InterruptedException e) {
 
+      }
     }
 
-    driveLeftA.set(-1);
-    driveRightA.set(-1);
+    for(double speed = 0.3; speed >= 0.1; speed -= 0.025) {
+      driveLeftA.set(speed);
+      driveLeftB.follow(driveLeftA);
+      driveRightA.set(speed);
+      driveRightB.follow(driveRightA);
+
+      try {
+        Thread.sleep(25);
+      } catch(InterruptedException e) {
+
+      }
+    }*/
+
+    driveLeftA.set(0);
+    driveLeftB.follow(driveLeftA);
+    driveRightA.set(0);
+    driveRightB.follow(driveRightA);
+
+    /**for(double speed = 1; speed >= -1; speed -= 0.025) {
+      driveLeftA.set(speed);
+      driveLeftB.follow(driveLeftA);
+      driveRightA.set(speed);
+      driveRightB.follow(driveRightA);
+
+      try {
+        Thread.sleep(25);
+      } catch(InterruptedException e) {
+
+      }
+    }
 
     if(SmartDashboard.getBoolean("Station 1", true)) {
       station = 1;
 
-      try {
-        Thread.sleep(Constants.driveOutTime);
-      } catch(InterruptedException e) {
+      for(double speed = -1; speed <= 0; speed += 0.025) {
+        driveLeftA.set(speed);
+        driveLeftB.follow(driveLeftA);
+        driveRightA.set(speed);
+        driveRightB.follow(driveLeftA);
 
+        try {
+          Thread.sleep(10);
+        } catch(InterruptedException e) {
+
+        }
       }
 
       if(Constants.blueAlliance) {
-        driveLeftA.set(1);
-        driveRightA.set(-1);
+        for(double speed = 0; speed <= 1; speed += 0.025) {
+          driveLeftA.set(speed);
+          driveLeftB.follow(driveLeftA);
+          driveRightA.set(-1 * speed);
+          driveRightB.follow(driveRightA);
+
+          try {
+            Thread.sleep(10);
+          } catch(InterruptedException e) {
+
+          }
+        }
+        for(double speed = 1; speed >= 0; speed -= 0.025) {
+          driveLeftA.set(speed);
+          driveLeftB.follow(driveLeftA);
+          driveRightA.set(-1 * speed);
+          driveRightB.follow(driveRightA);
+
+          try {
+            Thread.sleep(10);
+          } catch(InterruptedException e) {
+
+          }
+        }
       } else {
-        driveLeftA.set(-1);
-        driveRightA.set(1);
+        for(double speed = 0; speed <= 1; speed += 0.025) {
+          driveLeftA.set(-1 * speed);
+          driveLeftB.follow(driveLeftA);
+          driveRightA.set(speed);
+          driveRightB.follow(driveRightA);
+
+          try {
+            Thread.sleep(10);
+          } catch(InterruptedException e) {
+
+          }
+        }
+        for(double speed = 1; speed >= 0; speed -= 0.025) {
+          driveLeftA.set(-1 * speed);
+          driveLeftB.follow(driveLeftA);
+          driveRightA.set(speed);
+          driveRightB.follow(driveRightA);
+
+          try {
+            Thread.sleep(10);
+          } catch(InterruptedException e) {
+
+          }
+        }
       }
 
-      try {
-        Thread.sleep(Constants.spinTime);
-      } catch(InterruptedException e) {
+      for(double speed = 0; speed <= 1; speed += 0.025) {
+        driveLeftA.set(speed);
+        driveLeftB.follow(driveLeftA);
+        driveRightA.set(speed);
+        driveRightB.follow(driveRightA);
 
-      }
+        try {
+          Thread.sleep(10);
+        } catch(InterruptedException e) {
 
-      driveLeftA.set(1);
-      driveRightA.set(1);
-
-      try {
-        Thread.sleep(Constants.toTeeterTime);
-      } catch(InterruptedException e) {
-
+        }
       }
 
       if(Constants.blueAlliance) {
-        driveLeftA.set(-1);
-        driveRightA.set(1);
+        for(double speed = 0; speed <= 1; speed += 0.025) {
+          driveLeftA.set(-1 * speed);
+          driveLeftB.follow(driveLeftA);
+          driveRightA.set(speed);
+          driveRightB.follow(driveRightA);
+
+          try {
+            Thread.sleep(10);
+          } catch(InterruptedException e) {
+
+          }
+        }
+        for(double speed = 1; speed >= 0; speed -= 0.025) {
+          driveLeftA.set(-1 * speed);
+          driveLeftB.follow(driveLeftA);
+          driveRightA.set(speed);
+          driveRightB.follow(driveRightA);
+
+          try {
+            Thread.sleep(10);
+          } catch(InterruptedException e) {
+
+          }
+        }
       } else {
-        driveLeftA.set(1);
-        driveRightA.set(-1);
-      }
+        for(double speed = 0; speed <= 1; speed += 0.025) {
+          driveLeftA.set(speed);
+          driveLeftB.follow(driveLeftA);
+          driveRightA.set(-1 * speed);
+          driveRightB.follow(driveRightA);
 
-      try {
-        Thread.sleep(Constants.spinTime);
-      } catch(InterruptedException e) {
+          try {
+            Thread.sleep(10);
+          } catch(InterruptedException e) {
 
+          }
+        }
+        for(double speed = 1; speed >= 0; speed -= 0.025) {
+          driveLeftA.set(speed);
+          driveLeftB.follow(driveLeftA);
+          driveRightA.set(-1 * speed);
+          driveRightB.follow(driveRightA);
+
+          try {
+            Thread.sleep(10);
+          } catch(InterruptedException e) {
+
+          }
+        }
       }
     } else if(SmartDashboard.getBoolean("Station 2", true)) {
       station = 2;
 
-      for(double speed = -1; speed < 0; speed += 0.1) {
+      for(double speed = 0; speed <= -1; speed -= 0.025) {
         driveLeftA.set(speed);
+        driveLeftB.follow(driveLeftA);
         driveRightA.set(speed);
+        driveRightB.follow(driveRightA);
 
         try {
-          Thread.sleep(75);
+          Thread.sleep(10);
+        } catch(InterruptedException e) {
+
+        }
+      }
+      for(double speed = -1; speed <= 0; speed += 0.025) {
+        driveLeftA.set(speed);
+        driveLeftB.follow(driveLeftA);
+        driveRightA.set(speed);
+        driveRightB.follow(driveRightA);
+
+        try {
+          Thread.sleep(10);
         } catch(InterruptedException e) {
 
         }
@@ -407,65 +592,173 @@ public class Robot extends TimedRobot {
     } else if(SmartDashboard.getBoolean("Station 3", true)) {
       station = 3;
 
-      try {
-        Thread.sleep(Constants.driveOutTime);
-      } catch(InterruptedException e) {
-        
+      for(double speed = -1; speed <= 0; speed += 0.025) {
+        driveLeftA.set(speed);
+        driveLeftB.follow(driveLeftA);
+        driveRightA.set(speed);
+        driveRightB.follow(driveLeftA);
+
+        try {
+          Thread.sleep(10);
+        } catch(InterruptedException e) {
+
+        }
       }
 
       if(Constants.blueAlliance) {
-        driveLeftA.set(-1);
-        driveRightA.set(1);
+        for(double speed = 0; speed <= 1; speed += 0.025) {
+          driveLeftA.set(-1 * speed);
+          driveLeftB.follow(driveLeftA);
+          driveRightA.set(speed);
+          driveRightB.follow(driveRightA);
+
+          try {
+            Thread.sleep(10);
+          } catch(InterruptedException e) {
+
+          }
+        }
+        for(double speed = 1; speed >= 0; speed -= 0.025) {
+          driveLeftA.set(-1 * speed);
+          driveLeftB.follow(driveLeftA);
+          driveRightA.set(speed);
+          driveRightB.follow(driveRightA);
+
+          try {
+            Thread.sleep(10);
+          } catch(InterruptedException e) {
+
+          }
+        }
       } else {
-        driveLeftA.set(1);
-        driveRightA.set(-1);
+        for(double speed = 0; speed <= 1; speed += 0.025) {
+          driveLeftA.set(speed);
+          driveLeftB.follow(driveLeftA);
+          driveRightA.set(-1 * speed);
+          driveRightB.follow(driveRightA);
+
+          try {
+            Thread.sleep(10);
+          } catch(InterruptedException e) {
+
+          }
+        }
+        for(double speed = 1; speed >= 0; speed -= 0.025) {
+          driveLeftA.set(speed);
+          driveLeftB.follow(driveLeftA);
+          driveRightA.set(-1 * speed);
+          driveRightB.follow(driveRightA);
+
+          try {
+            Thread.sleep(10);
+          } catch(InterruptedException e) {
+
+          }
+        }
       }
 
-      try {
-        Thread.sleep(Constants.spinTime);
-      } catch(InterruptedException e) {
+      for(double speed = 0; speed <= 1; speed += 0.025) {
+        driveLeftA.set(speed);
+        driveLeftB.follow(driveLeftA);
+        driveRightA.set(speed);
+        driveRightB.follow(driveRightA);
 
-      }
+        try {
+          Thread.sleep(10);
+        } catch(InterruptedException e) {
 
-      driveLeftA.set(1);
-      driveRightA.set(1);
-
-      try {
-        Thread.sleep(Constants.toTeeterTime);
-      } catch(InterruptedException e) {
-
+        }
       }
 
       if(Constants.blueAlliance) {
-        driveLeftA.set(1);
-        driveRightA.set(-1);
+        for(double speed = 0; speed <= 1; speed += 0.025) {
+          driveLeftA.set(speed);
+          driveLeftB.follow(driveLeftA);
+          driveRightA.set(-1 * speed);
+          driveRightB.follow(driveRightA);
+
+          try {
+            Thread.sleep(10);
+          } catch(InterruptedException e) {
+
+          }
+        }
+        for(double speed = 1; speed >= 0; speed -= 0.025) {
+          driveLeftA.set(speed);
+          driveLeftB.follow(driveLeftA);
+          driveRightA.set(-1 * speed);
+          driveRightB.follow(driveRightA);
+
+          try {
+            Thread.sleep(10);
+          } catch(InterruptedException e) {
+
+          }
+        }
       } else {
-        driveLeftA.set(-1);
-        driveRightA.set(1);
-      }
+        for(double speed = 0; speed <= 1; speed += 0.025) {
+          driveLeftA.set(-1 * speed);
+          driveLeftB.follow(driveLeftA);
+          driveRightA.set(speed);
+          driveRightB.follow(driveRightA);
 
-      try {
-        Thread.sleep(Constants.spinTime);
-      } catch(InterruptedException e) {
+          try {
+            Thread.sleep(10);
+          } catch(InterruptedException e) {
 
+          }
+        }
+        for(double speed = 1; speed >= 0; speed -= 0.025) {
+          driveLeftA.set(-1 * speed);
+          driveLeftB.follow(driveLeftA);
+          driveRightA.set(speed);
+          driveRightB.follow(driveRightA);
+
+          try {
+            Thread.sleep(10);
+          } catch(InterruptedException e) {
+
+          }
+        }
       }
     }
 
-    for(double speed = 1; speed > 0; speed -= 0.1) {
+    for(double speed = 0; speed <= 1; speed += 0.025) {
       driveLeftA.set(speed);
+      driveLeftB.follow(driveLeftA);
       driveRightA.set(speed);
+      driveRightB.follow(driveRightA);
 
       try {
-        Thread.sleep(50);
+        Thread.sleep(10);
+      } catch(InterruptedException e) {
+
+      }
+    }
+    for(double speed = 1; speed >= 0; speed -= 0.025) {
+      driveLeftA.set(speed);
+      driveLeftB.follow(driveLeftA);
+      driveRightA.set(speed);
+      driveRightB.follow(driveRightA);
+
+      try {
+        Thread.sleep(10);
       } catch(InterruptedException e) {
         
       }
     }
 
+    driveLeftA.setInverted(false);
+    driveLeftA.burnFlash();
+    driveLeftB.setInverted(false);
+    driveLeftB.burnFlash();
+    driveRightA.setInverted(true);
+    driveRightA.burnFlash();
+    driveRightB.setInverted(true);
+    driveRightB.burnFlash();*/
     /*if(!SmartDashboard.getBoolean("Go For Auto", true)) {
       return;
     }
-
     if(SmartDashboard.getBoolean("Has Cone", true)) {
       //I'm not entirely sure but I'm hoping this will reset the variable value
       SmartDashboard.putBoolean("Has Cone", false);
@@ -475,7 +768,6 @@ public class Robot extends TimedRobot {
       SmartDashboard.putBoolean("Has Cube", false);
       scoreCubeTop();
     }
-
     //This and other instances of -1 drive power might have to be changed to 1
     //goTo(Constants.autoPieceX, Constants.autoPieceY[station - 1], 180.0);
       
@@ -486,14 +778,13 @@ public class Robot extends TimedRobot {
       SmartDashboard.putBoolean("Grab Cube", false);
       grabCube();
     }
-
   //balanceOnTeeter(14.9, false, true, false);*/
   }
 
   /** This function is called periodically during autonomous. */
   @Override
   public void autonomousPeriodic() {
-    if (goForAuto) {
+    /*if (goForAuto) {
 
       // series of timed events making up the flow of auto
       if (Timer.getFPGATimestamp() - autoStart < 4) {
@@ -518,14 +809,22 @@ public class Robot extends TimedRobot {
         driveRightB.set(0);
 
       }
-    }
+    }*/
   }
 
   /** This function is called once when teleop is enabled. */
   @Override
   public void teleopInit() {
+    driveLeftA.setInverted(false);
+    driveLeftA.burnFlash();
+    driveLeftB.setInverted(false);
+    driveLeftB.burnFlash();
+    driveRightA.setInverted(true);
+    driveRightA.burnFlash();
+    driveRightB.setInverted(true);
+    driveRightB.burnFlash();
     //accelerometer.resetDisplacement();
-
+    //Positions.startPosition();
   }
 
   /** This function is called periodically during operator control. */
@@ -533,7 +832,6 @@ public class Robot extends TimedRobot {
   public void teleopPeriodic() {
     //accelThread.start();
     //disable and enable
-    
 
     if (ps1.getPSButtonPressed()) {
       stopped1 = !stopped1;
@@ -593,16 +891,16 @@ public class Robot extends TimedRobot {
     //lowest is 
     if (!stopped2) {
       if (ps2.getL2Axis() > 0.5) {
-        armActuator.set(-1);
+        armActuator.set(ps2.getL2Axis());
       } else if (ps2.getR2Axis() > 0.5) {
-        armActuator.set(1);
+        armActuator.set(-1 * ps2.getR2Axis());
       } else {
         armActuator.set(0);
       }
 
-      if (ps2.getLeftY() < -0.5 && armExtensionPotentiometer.get() < 0.755) {
+      if (ps2.getLeftY() < -0.5 && armExtensionPotentiometer.get() < 0.645) {
         armExtension.set(1);
-      } else if (ps2.getLeftY() > 0.5 && armExtensionPotentiometer.get() > 0.05) {
+      } else if (ps2.getLeftY() > 0.5 ) {
         armExtension.set(-1);
       } else {
         armExtension.set(0);
@@ -623,7 +921,7 @@ public class Robot extends TimedRobot {
         clawSolenoid2.set(DoubleSolenoid.Value.kReverse);
         closed = true;
       } 
-
+      /*
       if (ps2.getCrossButtonPressed() && topcam == false) {
         cameraSelection.setString(topCamera.getName());
         topcam = true;
@@ -631,16 +929,17 @@ public class Robot extends TimedRobot {
         cameraSelection.setString(bottomCamera.getName());
         topcam = false;
       }
+      */
 
       if (ps2.getR3Button()) {
-        PneumaticsCompressor.enableDigital();
+        PneumaticsCompressor.start();
       } else if (ps2.getL3Button()) {
-        PneumaticsCompressor.disable();
+        PneumaticsCompressor.stop();
       }
 
-      if (ps2.getRightY() > 0.5) {
+      if (ps1.getRightY() > 0.5) {
         servoAngle -= 0.01;
-      } else if (ps2.getRightY() < -0.5) {
+      } else if (ps1.getRightY() < -0.5) {
         servoAngle += 0.01;
       } 
       if (servoAngle > 0.6) {
@@ -651,6 +950,7 @@ public class Robot extends TimedRobot {
       }
       cameraServo.set(servoAngle);
 
+    /*
       if (ps2.getOptionsButtonPressed()) {
         scoreConeTop();
       }
@@ -658,6 +958,7 @@ public class Robot extends TimedRobot {
       if (ps2.getShareButtonPressed()) {
         balanceOnTeeter(100000, false, true, false);
       }
+      */
     }
 
     //Drivers MUST have the robot completely stopped sometime during the last 15 seconds for the robot to auto teeter. They also must stop it in front of the docking station
@@ -665,7 +966,30 @@ public class Robot extends TimedRobot {
       balanceOnTeeter(149.9, false, true, false);
     }
 
+    /*positionX += accelerometer.getVelocityX() * accelTime;
+    positionY += accelerometer.getVelocityY() * accelTime;
+    positionZ += accelerometer.getVelocityZ() * accelTime;
+
+    double prevAngle = angle;
+    double prevVelocity = angularVelocity;
+    angle = accelerometer.getYaw() < 0 ? accelerometer.getYaw() + 360.0 : accelerometer.getYaw();
+    angularVelocity = (angle - prevAngle) / (Timer.getFPGATimestamp() - accelTime);
+    angularAccel = (prevVelocity - angularVelocity) / (Timer.getFPGATimestamp() - accelTime);
+    accelTime = Timer.getFPGATimestamp();*/
+
     //Reading measurements
+    SmartDashboard.putNumber("accelerometer X", accelX);
+    SmartDashboard.putNumber("accelerometer Z", accelZ);
+    SmartDashboard.putNumber("accelerometer Y", accelY);
+    SmartDashboard.putNumber("Velocity X (left/right)", velocityX);
+    SmartDashboard.putNumber("Velocity Z (Forwards/Backwards)", velocityZ);
+    SmartDashboard.putNumber("Velocity Y (Up/Down)", velocityY);
+    SmartDashboard.putNumber("Position X (left/right)", positionX);
+    SmartDashboard.putNumber("Position Z (Forwards/Backwards)", positionZ);
+    SmartDashboard.putNumber("Position Y (Up/Down)", positionY);
+    SmartDashboard.putNumber("Angular Acceleration", angularAccel);
+    SmartDashboard.putNumber("Angular Velocity", angularVelocity);
+    SmartDashboard.putNumber("Angle", angle);
     SmartDashboard.putNumber("arm potentiometer", armPotentiometer.get());
     SmartDashboard.putNumber("arm extension", armExtensionPotentiometer.get());
 
@@ -695,32 +1019,6 @@ public class Robot extends TimedRobot {
     armAngleThread.start();
     armExtensionThread.start();
 
-    if(Constants.blueAlliance) {
-      while(Math.abs(0.0 - SmartDashboard.getNumber("Angle", 0.0)) > Constants.angleTolerance && Math.abs(1.38 - SmartDashboard.getNumber("Position X", 0.0)) > Constants.xPositionTolerance) {
-        try {
-          Thread.sleep(100);
-        } catch(InterruptedException e) {
-
-        }
-      }
-    } else {
-      while(Math.abs(180.0 - SmartDashboard.getNumber("Angle", 0.0)) > Constants.angleTolerance && Math.abs((16.54 - 1.38) - SmartDashboard.getNumber("Position X", 0.0)) > Constants.xPositionTolerance) {
-        try {
-          Thread.sleep(100);
-        } catch(InterruptedException e) {
-
-        }
-      }
-    }
-
-    while(Math.abs(armPotentiometer.get() - targetArmAngle) > Constants.armAngleTolerance && Math.abs(armExtensionPotentiometer.get() - targetExtensionLength) > Constants.armLengthTolerance) {
-      try {
-        Thread.sleep(100);
-      } catch(InterruptedException e) {
-
-      }
-    }
-
     clawSolenoid1.set(DoubleSolenoid.Value.kReverse);
     clawSolenoid2.set(DoubleSolenoid.Value.kReverse);
   }
@@ -743,10 +1041,6 @@ public class Robot extends TimedRobot {
   public void grabCube() {
     //Oh boohoo I'm going to cry
   }
-
-  public void balanceOnTeeter() {
-    
-  }
   
   //PRECONDITION: The robot IS NOT moving and is in front of the teeter totter
   public void balanceOnTeeter(double time, boolean left, boolean middle, boolean right) {
@@ -760,23 +1054,23 @@ public class Robot extends TimedRobot {
     double x0 = Constants.teeterCornersX[0];
     
     if(left) {
-      if(Math.sqrt(Math.pow(y1 - SmartDashboard.getNumber("Position Y", 0.0), 2) + Math.pow(x1 - SmartDashboard.getNumber("Position X", 0.0), 2)) < 
-      Math.sqrt(Math.pow(y2 - SmartDashboard.getNumber("Position Y", 0.0), 2) + Math.pow(x2 - SmartDashboard.getNumber("Position X", 0.0), 2))) {
+      if(Math.sqrt(Math.pow(y1 - positionY, 2) + Math.pow(x1 - positionX, 2)) < 
+      Math.sqrt(Math.pow(y2 - positionY, 2) + Math.pow(x2 - positionX, 2))) {
         goTo(y1, x1, 180.0);
       } else {
         goTo(y2, x2, 0.0);
       }
 
     } else if(middle) {
-      if(x0 - SmartDashboard.getNumber("Position X", 0.0) < x3 - SmartDashboard.getNumber("Position X", 0.0)) {
+      if(x0 - positionX < x3 - positionX) {
         goTo(x0, ((y1 - y0) / 2.0) + y0, 180.0);
       } else {
         goTo(x3, ((y1 - y0) / 2.0) + y0, 0.0);
       }
 
     } else if(right) {
-      if(Math.sqrt(Math.pow(y3 - SmartDashboard.getNumber("Position Y", 0.0), 2) + Math.pow(x3 - SmartDashboard.getNumber("Position X", 0.0), 2)) < 
-      Math.sqrt(Math.pow(y0 - SmartDashboard.getNumber("Position Y", 0.0), 2) + Math.pow(x0 - SmartDashboard.getNumber("Position X", 0.0), 2))) {
+      if(Math.sqrt(Math.pow(y3 - positionY, 2) + Math.pow(x3 - positionX, 2)) < 
+      Math.sqrt(Math.pow(y0 - positionY, 2) + Math.pow(x0 - positionX, 2))) {
         goTo(y3, x3, 0.0);
       } else {
         goTo(y0, x0, 180.0);
@@ -785,7 +1079,7 @@ public class Robot extends TimedRobot {
     }
 
     while(Timer.getFPGATimestamp() - autoStart < time) {
-      goTo(Constants.teeterPositionX, SmartDashboard.getNumber("Position Y", 0.0), SmartDashboard.getNumber("Angle", 0.0));
+      goTo(Constants.teeterPositionX, positionY, angle);
     }
   }
 
@@ -793,27 +1087,21 @@ public class Robot extends TimedRobot {
     if(isOB(newPositionX, newPositionY)) {
       return;
     }
-
-    double slope = (newPositionX - SmartDashboard.getNumber("Position X", 0.0)) / (newPositionY - SmartDashboard.getNumber("Position Y", 0.0));
-    double tempX = SmartDashboard.getNumber("Position X", 0.0);
-    double tempY = SmartDashboard.getNumber("Position Y", 0.0);
-
+    double slope = (newPositionX - positionX) / (newPositionY - positionY);
+    double tempX = positionX;
+    double tempY = positionY;
     ArrayList<Double> curvePointsY = new ArrayList<Double>();
     ArrayList<Double> curvePointsX = new ArrayList<Double>();
-
     for(int i = 0; i < Constants.OBY.length; i++) {
       if(tempY < Constants.OBY[i][0] && newPositionY > Constants.OBY[i][1]) {
         double startX = (Constants.OBY[i][0] - tempY) * slope + tempX;
         double endX = (Constants.OBY[i][1] - tempY) * slope + tempX;
-
         if((startX >= Constants.OBX[i][0] && startX <= Constants.OBX[i][1]) || (endX >= Constants.OBX[i][0] && endX <= Constants.OBX[i][1])) {
           curvePointsY.add(tempY);
           curvePointsX.add(tempX);
-
-          if(newPositionY < tempY) {
+          if(newPositionY < positionY) {
             curvePointsY.add(Constants.OBY[i][1]);
             tempY = Constants.OBY[i][1];
-
             if(Constants.OBY[i][0] > newPositionY) {
               curvePointsY.add(Constants.OBY[i][0]);
               tempY = Constants.OBY[i][0];
@@ -821,7 +1109,6 @@ public class Robot extends TimedRobot {
           } else {
             curvePointsY.add(Constants.OBY[i][0]);
             tempY = Constants.OBY[i][0];
-
             if(Constants.OBY[i][1] < newPositionY) {
               curvePointsY.add(Constants.OBY[i][1]);
               tempY = Constants.OBY[i][1];
@@ -830,15 +1117,12 @@ public class Robot extends TimedRobot {
           if(isOB(Constants.OBY[i][0], Constants.OBX[i][0] - 1.0)) {
             curvePointsX.add(Constants.OBX[i][1]);
             tempX = Constants.OBX[i][1];
-
           } else if(isOB(Constants.OBY[i][0], Constants.OBX[i][1] - 1.0)) {
             curvePointsX.add(Constants.OBX[i][0]);
             tempX = Constants.OBX[i][0];
-
           } else if(Math.abs(startX - Constants.OBX[i][0]) < Math.abs(startX - Constants.OBX[i][1])) {
             curvePointsX.add(Constants.OBX[i][0]);
             tempX = Constants.OBX[i][0];
-
           } else {
             curvePointsX.add(Constants.OBX[i][1]);
             tempX = Constants.OBX[i][1];
@@ -850,97 +1134,74 @@ public class Robot extends TimedRobot {
         }
       }
     }
-
     curvePointsY.add(newPositionY);
     curvePointsX.add(newPositionX);
-
     while(curvePointsY.size() > 0) {
+      double currTime = Timer.getFPGATimestamp();
       double targetY = curvePointsY.remove(0);
       double targetX = curvePointsX.remove(0);
-      double yLine = SmartDashboard.getNumber("Position Y", 0.0);
-
-      while(Math.abs(targetX - SmartDashboard.getNumber("Position X", 0.0)) > Constants.xPositionTolerance && Math.abs(targetY - SmartDashboard.getNumber("Position Y", 0.0)) > Constants.yPositionTolerance) {
-        while((Math.abs(targetX - SmartDashboard.getNumber("Position X", 0.0)) <= Constants.xPositionTolerance && Math.abs(targetY - SmartDashboard.getNumber("Position Y", 0.0)) > Constants.yPositionTolerance)
-        || Math.abs(yLine - SmartDashboard.getNumber("Position Y", 0.0)) > Constants.yLineTolerance) {
-          if(targetX - SmartDashboard.getNumber("Position X", 0.0) <= Constants.xPositionTolerance) {
-            if(Math.abs((SmartDashboard.getNumber("Position Y", 0.0) < targetY ? 270.0: 90.0) - SmartDashboard.getNumber("Angle", 0.0)) >= Constants.angleTolerance) {
-              orient(SmartDashboard.getNumber("Position Y", 0.0) < targetY ? 270.0: 90.0);
+      double yLine = positionY;
+      while(Math.abs(targetX - positionX) > Constants.xPositionTolerance && Math.abs(targetY - positionY) > Constants.yPositionTolerance) {
+        while((Math.abs(targetX - positionX) <= Constants.xPositionTolerance && Math.abs(targetY - positionY) > Constants.yPositionTolerance)
+        || Math.abs(yLine - positionZ) > Constants.yLineTolerance) {
+          if(targetX - positionX <= Constants.xPositionTolerance) {
+            if(Math.abs((positionY < targetY ? 270.0: 90.0) - angle) >= Constants.angleTolerance) {
+              orient(positionY < targetY ? 270.0: 90.0);
             }
           } else {
-            if(Math.abs((SmartDashboard.getNumber("Position Y", 0.0) < yLine ? 270.0 : 90.0) - SmartDashboard.getNumber("Angle", 0.0)) >= Constants.angleTolerance) {
-              orient(SmartDashboard.getNumber("Position Y", 0.0) < yLine ? 270.0 : 90.0);
+            if(Math.abs((positionY < yLine ? 270.0 : 90.0) - angle) >= Constants.angleTolerance) {
+              orient(positionY < yLine ? 270.0 : 90.0);
             }
           }
-
           driveLeftA.set(1);
           driveRightA.set(1);
-
-          try {
-            Thread.sleep(50);
-          } catch(InterruptedException e) {
-
-          }
         }
-
-        if(Math.abs((targetX > SmartDashboard.getNumber("Position X", 0.0) ? 0.0 : 180.0) - SmartDashboard.getNumber("Angle", 0.0)) > Constants.angleTolerance) {
-          orient(targetX > SmartDashboard.getNumber("Position X", 0.0) ? 0.0 : 180.0);
+        if(Math.abs((targetX > positionX ? 0.0 : 180.0) - angle) > Constants.angleTolerance) {
+          orient(targetX > positionX ? 0.0 : 180.0);
         }
-
         driveLeftA.set(1);
         driveRightA.set(1);
-
-        try {
-          Thread.sleep(50);
-        } catch(InterruptedException e) {
-
-        }
       }
     }
-    
     orient(newAngle);
     //Hopefully that's all
   }
 
   public void orient(double targetAngle) {
+      double tempAngle = angle;
+      double tempTime = Timer.getFPGATimestamp();
       boolean less180 = false;
-
-      if(targetAngle - SmartDashboard.getNumber("Angle", 0.0) < 180) {
+      if(targetAngle - angle < 180) {
         less180 = true;
         driveLeftA.set(-1);
         driveRightA.set(1);
-
       } else {
         driveLeftA.set(1);
         driveRightA.set(-1);
       }
-
+      /**while((Timer.getFPGATimestamp() - tempTime) < Math.pow(10, -10)) {}
+      double prevAngularVelocity = 0.0;
+      double angularVelocity = (angle - tempAngle) / (Timer.getFPGATimestamp() - tempTime);
+      double angularAccel = (angularVelocity - prevAngularVelocity) / (Timer.getFPGATimestamp() - tempTime);
+      tempAngle = angle;
+      tempTime = Timer.getFPGATimestamp();*/
       //Might have to change to quarter-circle calculations instead
-      while(Math.abs(targetAngle - (SmartDashboard.getNumber("Angle", 0.0) + (((SmartDashboard.getNumber("Angular Velocity", 0.0) / SmartDashboard.getNumber("Angular Acceleration", 0.0)) * SmartDashboard.getNumber("Angular Velocity", 0.0)) / 2.0))) > Constants.angleTolerance) {
-        try {
-          Thread.sleep(50);
-        } catch(InterruptedException e) {
-
-        }
+      while(Math.abs(targetAngle - (angle + (((angularVelocity / angularAccel) * angularVelocity) / 2.0))) > Constants.angleTolerance) {
+        /**prevAngularVelocity = angularVelocity;
+        angularVelocity += (angle - tempAngle) / (Timer.getFPGATimestamp() - tempTime);
+        angularAccel += (angularVelocity - prevAngularVelocity) / (Timer.getFPGATimestamp() - tempTime);
+        tempAngle = angle;
+        tempTime = Timer.getFPGATimestamp();*/
       }
-
       //Might need to be 0 and -1
       if(less180) {
         driveLeftA.set(1);
         driveRightA.set(-1);
-
       } else {
         driveLeftA.set(-1);
         driveRightA.set(1);
       }
-
-      while(Math.abs(targetAngle - SmartDashboard.getNumber("Angle", 0.0)) <= Constants.angleTolerance) {
-        try {
-          Thread.sleep(50);
-        } catch(InterruptedException e) {
-
-        }
-      }
-
+      while(Math.abs(targetAngle - angle) <= Constants.angleTolerance) {}
       driveLeftA.set(0);
       driveRightA.set(0);
   }
