@@ -15,6 +15,7 @@ import com.revrobotics.CANSparkMax;
 import com.revrobotics.CANSparkMax.IdleMode;
 import com.revrobotics.CANSparkMaxLowLevel.MotorType;
 import edu.wpi.first.wpilibj.Servo;
+import com.revrobotics.RelativeEncoder;
 
 //Pneumatics
 import edu.wpi.first.wpilibj.DoubleSolenoid;
@@ -70,6 +71,8 @@ public class Robot extends TimedRobot {
   CANSparkMax driveRightA = new CANSparkMax(4, MotorType.kBrushless);
   CANSparkMax driveRightB = new CANSparkMax(2, MotorType.kBrushless);
 
+  RelativeEncoder leftAEncoder = driveLeftA.getEncoder();
+
   //Linear actuator
   CANSparkMax armActuator = new CANSparkMax(7, MotorType.kBrushed);
 
@@ -91,7 +94,7 @@ public class Robot extends TimedRobot {
   //SPI.Port---The port used to connect to the navX (can be a I2C.Port instead) (this might just be a number, I'm not sure)
   //int---the bitrate of the sensor (max 2,000,000)
   //int---the update rate of the sensor sending us data (4 - 200)
-  AHRS accelerometer = new AHRS(Port.kMXP, (byte) 50);
+  /*AHRS accelerometer = new AHRS(Port.kMXP, (byte) 50);
   double accelOffsetX = accelerometer.getWorldLinearAccelX();
   double accelOffsetY = accelerometer.getWorldLinearAccelY();
   double accelOffsetZ = accelerometer.getWorldLinearAccelZ();
@@ -110,9 +113,9 @@ public class Robot extends TimedRobot {
   double angle = 0.0;
   double servoAngle = 0;
 
-  double accelTime = Timer.getFPGATimestamp();
+  double accelTime = Timer.getFPGATimestamp();*/
 
-  Thread accelThread;
+  //Thread accelThread;
 
   /*Accelerometer accelerometer = new BuiltInAccelerometer();
   double prevVelocityX = 0.0;
@@ -165,8 +168,10 @@ public class Robot extends TimedRobot {
   boolean goForAuto = false;
   boolean fast = false;
   boolean closed = false;
-  double leftSpeed = 0;
-  double rightSpeed = 0;
+  public static double leftSpeed = 0;
+  public static double rightSpeed = 0;
+  //I am well aware this is essentially the least recommended way of accessing the speeds
+  //However, this is the easiest for me right now
   boolean stopped1 = false;
   boolean stopped2 = false;
 
@@ -216,8 +221,25 @@ public class Robot extends TimedRobot {
     //cameras
     bottomCamera = CameraServer.startAutomaticCapture("Bottom", 0);
     bottomCamera.setFPS(15);
+    //Need to determine if this resolution will work well
+    bottomCamera.setResolution(704, 480);
+    Main.Sinks.add(CameraServer.getVideo("Bottom"));
+    Main.widths.add(704);
+    Main.heights.add(480);
+    //NEED to find experimental values for both cameras
+    Main.perPixelAngleX.add(0.0);
+    //Main.perPixelAngleY.add(0.0);
+    //The angle of the camera in relation to the arm such that facing the same direction is 0.0 and facing directly opposite is 180.0
+    Main.cameraAngles.add(0.0);
     topCamera = CameraServer.startAutomaticCapture("Top", 1);
     topCamera.setFPS(15);
+    bottomCamera.setResolution(704, 480);
+    Main.Sinks.add(CameraServer.getVideo("Top"));
+    Main.widths.add(704);
+    Main.heights.add(480);
+    Main.perPixelAngleX.add(0.0);
+    //Main.perPixelAngleY.add(0.0);
+
     cameraSelection = NetworkTableInstance.getDefault().getTable("").getEntry("CameraSelection");
     cameraSelection.setString(bottomCamera.getName());
     topcam = false;
@@ -228,7 +250,7 @@ public class Robot extends TimedRobot {
     goForAuto = SmartDashboard.getBoolean("Go For Auto", true);
 
     // accelerometers
-    SmartDashboard.putNumber("accelerometer X", accelerometer.getWorldLinearAccelX());
+    /*SmartDashboard.putNumber("accelerometer X", accelerometer.getWorldLinearAccelX());
     SmartDashboard.putNumber("accelerometer Z", accelerometer.getWorldLinearAccelZ());
     SmartDashboard.putNumber("accelerometer Y", accelerometer.getWorldLinearAccelY());
     SmartDashboard.putNumber("Velocity X (left/right)", accelerometer.getVelocityX());
@@ -239,7 +261,7 @@ public class Robot extends TimedRobot {
     SmartDashboard.putNumber("Position Y (Up/Down)", accelerometer.getDisplacementY());
     SmartDashboard.putNumber("Angular Acceleration", angularAccel);
     SmartDashboard.putNumber("Angular Velocity", angularVelocity);
-    SmartDashboard.putNumber("Angle", angle);
+    SmartDashboard.putNumber("Angle", angle);*/
     SmartDashboard.putNumber("arm potentiometer", armPotentiometer.get());
     SmartDashboard.putNumber("arm extension", armExtensionPotentiometer.get());
 
@@ -254,7 +276,7 @@ public class Robot extends TimedRobot {
     SmartDashboard.putBoolean("Cone", false);
     SmartDashboard.putBoolean("Cube", false);
 
-    accelThread = new Thread(() -> {
+    /*accelThread = new Thread(() -> {
       while(1 != 0) {
         accelX = accelerometer.getWorldLinearAccelX() - accelOffsetX;
         accelY = accelerometer.getWorldLinearAccelY() - accelOffsetY;
@@ -279,7 +301,7 @@ public class Robot extends TimedRobot {
         } catch(InterruptedException e) {
 
         }
-      }
+      }*/
       /*//Right Riemann, if this is too innaccurate then create another set of variables to store previous velocity/position
       //and do the Middle (or do a trapezoidal if you're feeling fancy)
       while (1 + 6 == 7) {
@@ -304,10 +326,10 @@ public class Robot extends TimedRobot {
       //} catch(InterruptedException e) {
 
       //}*/
-    });
+    //});
     //Low priority thread; minor increases in time between running shouldn't affect it too much
-    accelThread.setPriority(Thread.MIN_PRIORITY);
-    accelThread.setDaemon(true);
+    //accelThread.setPriority(Thread.MIN_PRIORITY);
+    //accelThread.setDaemon(true);
     //accelThread.start();
 
     armAngleThread = new Thread(() -> {
@@ -353,14 +375,6 @@ public class Robot extends TimedRobot {
 
   @Override
   public void autonomousInit() {
-    driveLeftA.setInverted(true);
-    driveLeftA.burnFlash();
-    driveLeftB.setInverted(true);
-    driveLeftB.burnFlash();
-    driveRightA.setInverted(false);
-    driveRightA.burnFlash();
-    driveRightB.setInverted(false);
-    driveRightB.burnFlash();
     // get a time for auton start to do events based on time later
     autoStart = Timer.getFPGATimestamp();
     // check dashboard icon to ensure good to do auto
@@ -373,49 +387,47 @@ public class Robot extends TimedRobot {
     //clawSolenoid1.set(DoubleSolenoid.Value.kReverse);
     //clawSolenoid2.set(DoubleSolenoid.Value.kReverse);
 
-    for(double speed = 0; speed >= -0.4; speed -= 0.025) {
-      driveLeftA.set(speed);
-      driveLeftB.follow(driveLeftA);
-      driveRightA.set(speed);
-      driveRightB.follow(driveRightA);
+    rampUp(0.4, 0.4, 0.025, 25);
 
-      try {
-        Thread.sleep(25);
-      } catch(InterruptedException e) {
+    for(double speed = 0; speed <= 0.4; speed += 0.025) {
+      if(speed == 0.025) {
+        double currTime = Timer.getFPGATimestamp();
+        leftAEncoder.setPosition(0.0);
+        driveLeftA.set(speed);
+        driveLeftB.follow(driveLeftA);
+        driveRightA.set(speed);
+        driveRightB.follow(driveRightA);
 
+        try {
+          Thread.sleep(25);
+        } catch(InterruptedException e) {
+
+        }
+
+        Main.experimentalVelocityConstant = 1.0 / ((leftAEncoder.getPosition() * leftAEncoder.getPositionConversionFactor() / (Timer.getFPGATimestamp() - currTime)) * speed);
+      } else {
+        driveLeftA.set(speed);
+        driveLeftB.follow(driveLeftA);
+        driveRightA.set(speed);
+        driveRightB.follow(driveLeftA);
       }
     }
 
-    /*for(double speed = 0.1; speed <= 0.3; speed += 0.025) {
-      driveLeftA.set(speed);
-      driveLeftB.follow(driveLeftA);
-      driveRightA.set(speed);
-      driveRightB.follow(driveRightA);
+    leftSpeed = -0.1;
+    rightSpeed = -0.1;
 
-      try {
-        Thread.sleep(25);
-      } catch(InterruptedException e) {
+    rampUp(-0.3, -0.3, 0.025, 25);
 
-      }
-    }
-
-    for(double speed = 0.3; speed >= 0.1; speed -= 0.025) {
-      driveLeftA.set(speed);
-      driveLeftB.follow(driveLeftA);
-      driveRightA.set(speed);
-      driveRightB.follow(driveRightA);
-
-      try {
-        Thread.sleep(25);
-      } catch(InterruptedException e) {
-
-      }
-    }*/
+    rampUp(-0.1, -0.1, 0.025, 25);
 
     driveLeftA.set(0);
     driveLeftB.follow(driveLeftA);
     driveRightA.set(0);
     driveRightB.follow(driveRightA);
+
+    rampUp(0.5, 0.5, 0.015, 25);
+
+    rampUp(0, 0, 0.025, 25);
 
     /**for(double speed = 1; speed >= -1; speed -= 0.025) {
       driveLeftA.set(speed);
@@ -978,7 +990,7 @@ public class Robot extends TimedRobot {
     accelTime = Timer.getFPGATimestamp();*/
 
     //Reading measurements
-    SmartDashboard.putNumber("accelerometer X", accelX);
+    /*SmartDashboard.putNumber("accelerometer X", accelX);
     SmartDashboard.putNumber("accelerometer Z", accelZ);
     SmartDashboard.putNumber("accelerometer Y", accelY);
     SmartDashboard.putNumber("Velocity X (left/right)", velocityX);
@@ -989,7 +1001,7 @@ public class Robot extends TimedRobot {
     SmartDashboard.putNumber("Position Y (Up/Down)", positionY);
     SmartDashboard.putNumber("Angular Acceleration", angularAccel);
     SmartDashboard.putNumber("Angular Velocity", angularVelocity);
-    SmartDashboard.putNumber("Angle", angle);
+    SmartDashboard.putNumber("Angle", angle);*/
     SmartDashboard.putNumber("arm potentiometer", armPotentiometer.get());
     SmartDashboard.putNumber("arm extension", armExtensionPotentiometer.get());
 
@@ -1021,6 +1033,69 @@ public class Robot extends TimedRobot {
 
     clawSolenoid1.set(DoubleSolenoid.Value.kReverse);
     clawSolenoid2.set(DoubleSolenoid.Value.kReverse);
+  }
+
+  //Recommended increment value of 0.025 with a sleep of 25
+  //Absolute value of target speed should equal each other
+  //Absolute value of current speeds should equal each other
+  public void rampUp(double targetSpeedL, double targetSpeedR, double increment, long sleepyTime) {
+    if(targetSpeedL < leftSpeed) {
+      if(targetSpeedR < rightSpeed) {
+        for(double speed = leftSpeed; speed >= targetSpeedL; speed -= increment) {
+          driveLeftA.set(speed);
+          driveLeftB.follow(driveLeftA);
+          driveRightA.set(speed);
+          driveRightB.follow(driveRightA);
+
+          try {
+            Thread.sleep(sleepyTime);
+          } catch(InterruptedException e) {
+
+          }
+        }
+      } else {
+        for(double speed = leftSpeed; speed >= targetSpeedL; speed -= increment) {
+          driveLeftA.set(speed);
+          driveLeftB.follow(driveLeftA);
+          driveRightA.set(-1 * speed);
+          driveRightB.follow(driveRightA);
+
+          try {
+            Thread.sleep(sleepyTime);
+          } catch(InterruptedException e) {
+            
+          }
+        }
+      }
+    } else {
+      if(targetSpeedR > rightSpeed) {
+        for(double speed = leftSpeed; speed <= targetSpeedL; speed += increment) {
+          driveLeftA.set(speed);
+          driveLeftB.follow(driveLeftA);
+          driveRightA.set(speed);
+          driveRightB.follow(driveRightA);
+
+          try {
+            Thread.sleep(sleepyTime);
+          } catch(InterruptedException e) {
+
+          }
+        }
+      } else {
+        for(double speed = leftSpeed; speed <= targetSpeedL; speed += increment) {
+          driveLeftA.set(speed);
+          driveLeftB.follow(driveLeftA);
+          driveRightA.set(-1 * speed);
+          driveRightB.follow(driveRightA);
+
+          try {
+            Thread.sleep(sleepyTime);
+          } catch(InterruptedException e) {
+            
+          }
+        }
+      }
+    }
   }
   
   public void scoreCubeTop() {

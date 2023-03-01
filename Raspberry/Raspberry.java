@@ -498,7 +498,7 @@ public class Raspberry {
                 //Ignore Z, we don't use it
 
                 for(AprilTagDetection aTag: myTags) {
-                    AprilTag currTag = theTags.get(AprilTagDetection.getId() - 1);
+                    AprilTag currTag = theTags.get(aTag.getId() - 1);
 
                     //Tag length divided by pixel length of corners to get a per pixel length
                     double xPixelLength = 0.1524 / Math.abs(currTag.getCornerX(0) - currTag.getCornerX(1));
