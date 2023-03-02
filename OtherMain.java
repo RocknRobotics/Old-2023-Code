@@ -4,6 +4,13 @@ import java.io.*;
 import edu.wpi.first.apriltags.*;
 import edu.wpi.first.networktables.*;
 
+/*
+TODO:
+Get the robot radius
+Get the numbers for the actuator/potentiometer
+Spend time crunching numbers for positions
+*/
+
 public class Main {
     ArrayList<VideoCapture> captures = new ArrayList<VideoCapture>();
     ArrayList<Double> widths = new ArrayList<Double>();
@@ -14,9 +21,29 @@ public class Main {
 
     //NEED radius to middle wheel in metres!!!
     final double robotRadius = 0.5;
+    //Change if needed
+    final boolean blueAlliance = true;
+    //Where the robot needs to be to be clear of the barrier (metres)
+    final double clearBarrierPosition = 0.0;
+    //Field length (x)
+    final double fieldLength = 16.54175;
+    //Field width(y)
+    final double fieldWidth = 8.0137;
+    //The imaginary line in the field where the robot should go to so that it just barely lines up with the corner station
+    final double cornerLineY = 0.0;
+    //Line for lining up x in front of station
+    final double stationLine = 0.0;
+    //Station y position tolerance
+    final double stationYTolerance = 0.0;
+    //Station y positions (different from april tags since those are only like every other station)
+    final double[] stationYs = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+    //Y position of the shelf
+    final double shelfY = 0.0;
+    //X position of the shelf
+    final double shelfX = 0.0;
 
     Thread positionThread;
-    //Accel isn't actually important, just for the dashboard
+    //Accel isn't actually important in this class, just for the dashboard
     double accelX = 0.0;
     double accelY = 0.0;
     double velocityX = 0.0;
@@ -26,7 +53,7 @@ public class Main {
 
     double angleAccel = 0.0;
     double angleVelocity = 0.0;
-    double angle = Constants.blueAlliance ? 180.0 : 0.0;
+    double angle = blueAlliance ? 180.0 : 0.0;
 
     double currTime = Timer.getFPGATimestamp();
     double prevVelocityX = 0.0;
@@ -44,6 +71,8 @@ public class Main {
 
     double leftSpeed = 0.0;
     double rightSpeed = 0.0;
+
+    Thread decider;
 
     public static void main(String[] args) {
         myDetector.addFamily("16h5");
@@ -64,6 +93,9 @@ public class Main {
         SmartDashboard.putNumber("Angular Acceleration", angleAccel);
         SmartDashboard.putNumber("Angular Velocity", angleVelocity);
         SmartDashboard.putNumber("Angle", angle);
+        SmartDashboard.putNumber("Target Actuator", 0.0);
+        SmartDashboard.putNumber("Target Potentiometer", 0.0);
+        SmartDashboard.putBoolean("At Target", false);
 
         captures.add(new VideoCapture("http://roborio-3692-frc.local:1181/?action=stream"));
         captures.add(new VideoCapture("http://roborio-3692-frc.local:1182/?action=stream"));
@@ -124,7 +156,7 @@ public class Main {
     visionThread = new Thread(() -> {
       while(true) {
         for(int i = 0; i < captures.size(); i++) {
-        //Empties current frames and grabs the next (synchronizes)
+        //Empties current frames and grabs the next (that way image isn't old and thus useless)
           while(captures.get(i).grab()) {}
 
           while(!captures.get(i).read(img)) {
@@ -136,36 +168,33 @@ public class Main {
           myTags = detector.detect(img);
 
           for(AprilTagDetection aDetection: myTags) {
-            //I'm keeping some of these calculations in case I need them
-            //X runs horizontally acorss an image (ex: bottom left corner to bottom right corner only the x would change if perfectly lined up)
             AprilTag currTag = theTags.get(aDetection.getId() - 1);
 
-            //double yLength = 0.0762;
-            double xLength = 0.0762;
-            
-            double xAngleToCenter = (Math.abs(currTag.getCenterX() - (widths.get(i) / 2.0))) * perPixelAngleX.get(i);
-            double xAngleToMid = (Math.abs(currTag.getCenterX() - (widths.get(i) / 2.0))) * perPixelAngleX.get(i);
+            double otherX = widths.get(i) - (aDetection.getCenterX() - (widths.get(i) / 2.0));
 
-            double cameraXAngle = 180 - (xAngleToCenter + xAngleToMid);
+            double largeCamAngle = perPixelAngleX.get(i) * Math.abs((aDetection.getCenterX() - otherX));
 
-            //Law of Sines: sin(angle a) / length a == sin(angle b) / length b
-            double xDistanceToCenter = Math.sin(xAngleToCenter) / (Math.sin(cameraXAngle) / xLength);
+            double centerAngle = (180 - Math.abs(largCamAngle)) / 2.0;
 
-            double yComponent = Math.cos(xAngleToCenter) * xDistanceToCenter;
-            double xComponent = Math.sin(xAngleToCenter) * xDistanceToCenter;
+            //Distance between two corners of a recognized tag divided by image coordinates
+            double perPixelLengthX = 0.1524 / (aDetection.getCornerX(0) - aDetection.getCornerX(2));
 
-            double cameraCenterAngle = 90 - xAngleToCenter;
+            double legitCamAngle = 90 - centerAngle;
 
-            angle = 90 - xAngle + cameraAngles.get(i);
-            angle %= 360;
+            double yComponent = (legitCamAngle / perPixelAngleX) * perPixelLengthX;
+            double xComponent = Math.tan(centerAngle) * yComponent;
+            double distance = Math.sqrt(Math.pow(yComponent, 2) + Math.pow(xComponent, 2));
 
-            if(currTag.getCenterX() < widths.get(i) / 2.0) {
+            //yComponent is to the left of tag centre
+            if(aDetection.getCenterX() > widths.get(i) / 2.0) {
               positionY = currTag.pose.getY() - yComponent;
+              angle = ((Math.asin(xComponent / distance) - legitCamAngle) * -1) - cameraAngles.get(i);
             } else {
               positionY = currTag.pose.getY() + yComponent;
+              angle = (Math.asin(xComponent / distance) - legitCamAngle) - cameraAngles.get(i);
             }
 
-            //Might be flipped
+            //Might be flip-flopped
             if(aDetection.getId() <= 4) {
               positionX = currTag.pose.getX() - xComponent;
             } else {
@@ -189,5 +218,183 @@ public class Main {
     visionThread.setPriority(Thread.MAX_PRIORITY);
     visionThread.setDaemon(true);
     visionThread.start();
+
+    decider = new Thread(() -> {
+      //1, 2, and 3 are reserved for bottom node, middle node, and top node respectively
+      //0 is reserved for moving it just in front of robot (for picking up ground pieces)
+      //4 is reserved for moving it to pick things up from game piece shelf
+      //Just realized, zero straight up won't be used???
+      int level = SmartDashboard.getNumber("Target Arm State", 0);
+      boolean hasPiece = SmartDashboard.getBoolean("Has Piece", false);
+      int targetStation = SmartDashboard.getNumber("Target Station", 1);
+      boolean autoDrive = SmartDashboard.getBoolean("Auto Drive", false);
+
+      boolean barrierStatement = (blueAlliance ? (positionX >= clearBarrierPosition) : (positionX <= fieldLength - clearBarrierPosition));
+      boolean cornerStatement = (positionY >= cornerLineY);
+      boolean lineStatement = (blueAlliance ? (Math.abs(positionX - stationLine) > stationLine) : (Math.abs(positionX - (fieldLength - stationLine)) > stationLineTolerance));
+      boolean stationStatement = Math.abs(positionY - stationYs[targetStation - 1]) > stationYTolerance;
+      boolean shelfStatement = (positionY <= shelfY);
+
+      if(autoDrive) {
+        if(hasPiece) {
+          switch(level) {
+            case 1:
+              SmartDashboard.putNumber("Target Actuator", 0.0);
+              SmartDashboard.putNumber("Target Potentiometer", 0.0);
+              break;
+            case 2:
+              SmartDashboard.putNumber("Target Actuator", 0.0);
+              SmartDashboard.putNumber("Target Potentiometer", 0.0);
+              break;
+            case 3:
+              SmartDashboard.putNumber("Target Actuator", 0.0);
+              SmartDashboard.putNumber("Target Potentiometer", 0.0);
+              break;
+            default:
+              SmartDashboard.putNumber("Target Actuator", 0.0);
+              SmartDashboard.putNumber("Target Potentiometer", 0.0);
+              break;
+          }
+          
+          if(blueAlliance) {
+            if(barrierStatement && cornerStatement) {
+              SmartDashboard.putNumber("Target Angle", 0.0);
+              SmartDashboard.putNumber("Target Position X", clearBarrierPosition - 0.5);
+              SmartDashboard.putNumber("Target Position Y", positionY);
+            } else if(cornerStatement && !lineStatement) {
+              SmartDashboard.putNumber("Target Angle", 90.0);
+              SmartDashboard.putNumber("Target Position X", positionX);
+              SmartDashboard.putNumber("Target Position Y", cornerLineY - 0.5);
+            } else if(lineStatement) {
+              SmartDashboard.putNumber("Target Angle", 180.0);
+              SmartDashboard.putNumber("Target Position X", stationLine);
+              SmartDashboard.putNumber("Target Position Y", positionY);
+            } else if(stationStatement) {
+              SmartDashboard.putNumber("Target Angle", 90.0);
+              SmartDashboard.putNumber("Target Position X", positionX);
+              SmartDashboard.putNumber("Target Position Y", stationYs[targetStation - 1]);
+            } else {
+              SmartDashboard.putNumber("Target Angle", 0.0);
+              SmartDashboard.putNumber("Target Position X", positionX - 0.5);
+              SmartDashboard.putNumber("Target Position Y", positionY);
+              SmartDashboard.putBoolean("At Target", true);
+
+              while(SmartDashboard.getBoolean("Has Piece", false)) {
+                try {
+                  Thread.sleep(50);
+                } catch(InterruptedException e) {
+
+                }
+              }
+
+              SmartDashboard.putBoolean("At Target", false);
+            }
+          } else {
+            if(barrierStatement && cornerStatement) {
+              SmartDashboard.putNumber("Target Angle", 180.0);
+              SmartDashboard.putNumber("Target Position X", (fieldLength - clearBarrierPosition) + 0.5);
+              SmartDashboard.putNumber("Target Position Y", positionY);
+            } else if(cornerStatement && !lineStatement) {
+              SmartDashboard.putNumber("Target Angle", 90.0);
+              SmartDashboard.putNumber("Target Position X", positionX);
+              SmartDashboard.putNumber("Target Position Y", cornerLineY - 0.5);
+            } else if(lineStatement) {
+              SmartDashboard.putNumber("Target Angle", 0.0);
+              SmartDashboard.putNumber("Target Position X", fieldLength - stationLine);
+              SmartDashboard.putNumber("Target Position Y", positionY);
+            } else if(stationStatement) {
+              SmartDashboard.putNumber("Target Angle", 90.0);
+              SmartDashboard.putNumber("Target Position X", positionX);
+              SmartDashboard.putNumber("Target Position Y", stationYs[targetStation - 1]);
+            } else {
+              SmartDashboard.putNumber("Target Angle", 180.0);
+              SmartDashboard.putNumber("Target Position X", positionX + 0.5);
+              SmartDashboard.putNumber("Target Position Y", positionY);
+              SmartDashboard.putBoolean("At Target", true);
+
+              while(SmartDashboard.getBoolean("Has Piece", false)) {
+                try {
+                  Thread.sleep(50);
+                } catch(InterruptedException e) {
+
+                }
+              }
+
+              SmartDashboard.putBoolean("At Target", false);
+            }
+          }
+        } else {
+          switch(level) {
+            case 0:
+              SmartDashboard.putNumber("Target Actuator", 0.0);
+              SmartDashboard.putNumber("Target Potentiometer", 0.0);
+              break;
+            case 4:
+              SmartDashboard.putNumber("Target Actuator", 0.0);
+              SmartDashboard.putNumber("Target Potentiometer", 0.0);
+              break;
+            default:
+              SmartDashboard.putNumber("Target Actuator", 0.0);
+              SmartDashboard.putNumber("Target Potentiometer", 0.0);
+              break;
+          }
+
+          if(blueAlliance) {
+            if(barrierStatement && shelfStatement) {
+              SmartDashboard.putNumber("Target Angle", 0.0);
+              SmartDashboard.putNumber("Target Position X", (fieldLength - clearBarrierPosition) + 0.5);
+              SmartDashboard.putNumber("Target Position Y", positionY);
+            } else if(shelfStatement) {
+              SmartDashboard.putNumber("Target Angle", 270.0);
+              SmartDashboard.putNumber("Target Position X", positionX);
+              SmartDashboard.putNumber("Target Position Y", shelfY);
+            } else {
+              SmartDashboard.putNumber("Target Angle", 180.0);
+              SmartDashboard.putNumber("Target Position X", shelfX);
+              SmartDashboard.putNumber("Target Position Y", positionY);
+              SmartDashboard.putBoolean("At Target", true);
+
+              while(!SmartDashboard.putBoolean("Has Piece", false)) {
+                try {
+                  Thread.sleep(50);
+                } catch(InterruptedException e) {
+
+                }
+              }
+
+              SmartDashboard.putBoolean("At Target", false);
+            }
+          } else {
+            if(barrierStatement && shelfStatement) {
+              SmartDashboard.putNumber("Target Angle", 180.0);
+              SmartDashboard.putNumber("Target Position X", clearBarrierPosition - 0.5);
+              SmartDashboard.putNumber("Target Position Y", positionY);
+            } else if(shelfStatement) {
+              SmartDashboard.putNumber("Target Angle", 270.0);
+              SmartDashboard.putNumber("Target Position X", positionX);
+              SmartDashboard.putNumber("Target Position Y", shelfY);
+            } else {
+              SmartDashboard.putNumber("Target Angle", 180.0);
+              SmartDashboard.putNumber("Target Position X", fieldLength - shelfX);
+              SmartDashboard.putNumber("Target Position Y", positionY);
+              SmartDashboard.putBoolean("At Target", true);
+
+              while(!SmartDashboard.putBoolean("Has Piece", false)) {
+                try {
+                  Thread.sleep(50);
+                } catch(InterruptedException e) {
+
+                }
+              }
+
+              SmartDashboard.putBoolean("At Target", false);
+            }
+          }
+        }
+      }
+    });
+    decider.setPriority(Thread.MAX_PRIORITY);
+    decider.setDaemon(true);
+    decider.start();
     }
 }

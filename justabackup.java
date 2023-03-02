@@ -95,8 +95,10 @@ public class Robot extends TimedRobot {
   public static AnalogPotentiometer armExtensionPotentiometer = new AnalogPotentiometer(0);
 
   //Arm threads
+  boolean armRunning = false;
   Thread armAngleThread;
   double targetArmAngle = 0.0;
+  boolean armExtending = false;
   Thread armExtensionThread;
   double targetExtensionLength = 0.0;
 
@@ -109,7 +111,6 @@ public class Robot extends TimedRobot {
   UsbCamera bottomCamera;
   NetworkTableEntry cameraSelection;
   boolean topcam;
-
 
   double prev = 0;
   double autoStart = 0;
@@ -170,11 +171,11 @@ public class Robot extends TimedRobot {
     bottomCamera = CameraServer.startAutomaticCapture("Bottom", 0);
     bottomCamera.setFPS(15);
     //Need to determine if this resolution will work well
-    bottomCamera.setResolution(704, 540);
+    bottomCamera.setResolution(600, 400);
     //I am well aware this is a very bad way of doing this, however I know this will work so that's why I'm using it
     //I'll probably refactor after the competition
-    SmartDashboard.putNumber("Top Width", 704);
-    SmartDashboard.putNumber("Top Height", 540);
+    SmartDashboard.putNumber("Top Width", 600);
+    SmartDashboard.putNumber("Top Height", 400);
     //NEED to find experimental values for both cameras
     SmartDashboard.putNumber("Top Pixel Angle X", 0.0);
     //The angle of the camera in relation to the arm such that facing the same direction is 0.0 and facing directly opposite is 180.0
@@ -183,9 +184,9 @@ public class Robot extends TimedRobot {
 
     topCamera = CameraServer.startAutomaticCapture("Top", 1);
     topCamera.setFPS(15);
-    bottomCamera.setResolution(704, 540);
-    SmartDashboard.putNumber("Bottom Width", 704);
-    SmartDashboard.putNumber("Bottom Height", 540);
+    bottomCamera.setResolution(600, 400);
+    SmartDashboard.putNumber("Bottom Width", 600);
+    SmartDashboard.putNumber("Bottom Height", 400);
     SmartDashboard.putNumber("Bottom Pixel Angle X", 0.0);
     SmartDashboard.putNumber("Bottom Camera Angle", 0.0);
     MjpegServer bottomServer = CameraServer.addServer("Bottom Stream", 1182);
@@ -213,41 +214,47 @@ public class Robot extends TimedRobot {
     SmartDashboard.putBoolean("Cube", false);
 
     armAngleThread = new Thread(() -> {
+      armRunning = true;
+
       while(Math.abs(armPotentiometer.get() - targetArmAngle) > Constants.armAngleTolerance) {
         if(armPotentiometer.get() < targetArmAngle) {
           armActuator.set(-1);
         } else {
           armActuator.set(1);
         }
-      }
 
-      armActuator.set(0);
-
-      try {
+        try {
           Thread.sleep(250);
         } catch(InterruptedException e) {
           
         }
+      }
+
+      armActuator.set(0);
+      armRunning = false;
     });
     armAngleThread.setPriority(Thread.MIN_PRIORITY);
     armAngleThread.setDaemon(true);
 
     armExtensionThread = new Thread(() -> {
+      armExtending = true;
+
       while(Math.abs(armExtension.get() - targetExtensionLength) > Constants.armLengthTolerance) {
         if(armExtension.get() < targetExtensionLength) {
           armExtension.set(-1);
         } else {
           armExtension.set(1);
         }
-      }
 
-      armExtension.set(0);
-
-      try {
+        try {
           Thread.sleep(250);
         } catch(InterruptedException e) {
           
         }
+      }
+
+      armExtension.set(0);
+      armExtending = false;
     });
     armExtensionThread.setPriority(Thread.MIN_PRIORITY);
     armExtensionThread.setDaemon(true);
@@ -268,7 +275,7 @@ public class Robot extends TimedRobot {
     });
     iPromiseThisWontBreakAnything.setPriority(Thread.MAX_PRIORITY);
     iPromiseThisWontBreakAnything.setDaemon(true);
-    //iPromiseThisWontBreakAnything.start();
+    iPromiseThisWontBreakAnything.start();
   }
 
   @Override
@@ -285,7 +292,7 @@ public class Robot extends TimedRobot {
     //clawSolenoid1.set(DoubleSolenoid.Value.kReverse);
     //clawSolenoid2.set(DoubleSolenoid.Value.kReverse);
 
-    rampUp(0.4, 0.4, 0.025, 25);
+    //rampUp(0.4, 0.4, 0.025, 25);
 
     for(double speed = 0; speed <= 0.4; speed += 0.025) {
       if(speed == 0.025) {
@@ -308,6 +315,12 @@ public class Robot extends TimedRobot {
         driveLeftB.follow(driveLeftA);
         driveRightA.set(speed);
         driveRightB.follow(driveLeftA);
+
+        try {
+          Thread.sleep(25);
+        } catch(InterruptedException e) {
+
+        }
       }
     }
 
@@ -746,7 +759,7 @@ public class Robot extends TimedRobot {
   @Override
   public void teleopPeriodic() {
     //accelThread.start();
-    //disable and enable
+    //disable and enable]
 
     if (ps1.getPSButtonPressed()) {
       stopped1 = !stopped1;
@@ -754,6 +767,34 @@ public class Robot extends TimedRobot {
 
     if (ps2.getPSButtonPressed()) {
       stopped2 = !stopped2;
+    }
+
+    //If driver controller is stopped then it will start auto driving (will not affect arm controller directly)
+    //But auto drive code could conflict with arm controls
+    if(stopped1) {
+      SmartDashboard.putBoolean("Auto Drive", true);
+
+      try {
+        Thread.sleep(100);
+      } catch(InterruptedException e) {
+
+      }
+
+      if(SmartDashboard.getBoolean("Auto Drive", false)) {
+        targetArmAngle = SmartDashboard.getNumber("Target Actuator", armPotentiometer.get());
+        if(!armRunning) {
+          armAngleThread.start();
+        }
+        targetExtensionLength = SmartDashboard.getNumber("Target Potentiometer", armExtensionPotentiometer.get());
+        if(!armExtending) {
+          armExtensionThread.start();
+        }
+
+        orient(SmartDashboard.getNumber("Target Angle", 0.0));
+        drive(SmartDashboard.getNumber("Target Position X", 0.0), SmartDashboard.getNumber("Target Position Y", 0.0));
+      }
+    } else {
+      SmartDashboard.putBoolean("Auto Drive", false);
     }
     
 
@@ -878,7 +919,7 @@ public class Robot extends TimedRobot {
 
     //Drivers MUST have the robot completely stopped sometime during the last 15 seconds for the robot to auto teeter. They also must stop it in front of the docking station
     if(Timer.getFPGATimestamp() - autoStart >= 135) {
-      balanceOnTeeter(149.9, false, true, false);
+      //balanceOnTeeter(149.9, false, true, false);
     }
 
     /*positionX += accelerometer.getVelocityX() * accelTime;
@@ -927,7 +968,126 @@ public class Robot extends TimedRobot {
     // intake.set(ControlMode.PercentOutput, 0);
   }
 
-  public void scoreConeTop() {
+  public void orient(double targetAngle) {
+    double speed = 0;
+    double totalTime = 0;
+
+    while(Math.abs((SmartDashboard.getNumber("Angle", 0.0) + (totalTime * SmartDashboard.getNumber("Angular Velocity", 0.0))) - targetAngle) > Constants.angleTolerance) {
+      if(!SmartDashboard.getBoolean("Auto Drive", false)) {
+        return;
+      }
+      speed += 0.025;
+      driveLeftA.set(speed);
+      driveLeftB.follow(driveLeftA);
+      driveRightA.set(-1 * speed);
+      driveRightB.follow(driveRightA);
+
+      try {
+        Thread.sleep(25);
+      } catch(InterruptedException e) {
+
+      }
+
+      totalTime += 0.025;
+    }
+
+    while(speed > 0) {
+      if(!SmartDashboard.getBoolean("Auto Drive", false)) {
+        return;
+      }
+      speed -= 0.025;
+      driveLeftA.set(speed);
+      driveLeftB.follow(driveLeftA);
+      driveRightA.set(-1 * speed);
+      driveRightB.follow(driveRightA);
+
+      try {
+        Thread.sleep(25);
+      } catch(InterruptedException e) {
+
+      }
+    }
+
+    //ASSUMES that it is already angled correctly and that the new positions don't cross out of bounds
+    //Should always be driving backwards to avoid hitting other robots with the arm
+    public void drive(double newPositionX, double newPositionY) {
+      double speed = 0.0;
+      double totalTime = 0.0;
+
+      if(newPositionX == SmartDashboard.getNumber("Position X", 0.0)) {
+        //Y changes
+        while(Math.abs((SmartDashboard.getNumber("Position Y", 0.0) + (totalTime * SmartDashboard.getNumber("Velocity Y", 0.0))) - newPositionY) > Constants.positionTolerance) {
+          if(!SmartDashboard.getBoolean("Auto Drive", false)) {
+            return;
+          }
+          speed -= 0.025;
+          driveLeftA.set(speed);
+          driveLeftB.follow(driveLeftA);
+          driveRightA.set(speed);
+          driveRightB.follow(driveRightA);
+
+          try {
+            Thread.sleep(25);
+          } catch(InterruptedException e) {
+
+          }
+
+          totalTime += 0.025;
+        }
+
+        while(speed < 0) {
+          if(!SmartDashboard.getBoolean("Auto Drive", false)) {
+            return;
+          }
+          speed += 0.025;
+          driveLeftA.set(speed);
+          driveLeftB.follow(driveLeftA);
+          driveRightA.set(speed);
+          driveRightB.follow(driveRightA);
+
+          try {
+            Thread.sleep(25);
+          } catch(InterruptedException e) {
+
+          }
+        }
+
+      } else {
+        //X changes
+        while(Math.abs((SmartDashboard.getNumber("Position X", 0.0) + (totalTime * SmartDashboard.getNumber("Velocity X", 0.0))) - newPositionY) > Constants.positionTolerance) {
+          speed -= 0.025;
+          driveLeftA.set(speed);
+          driveLeftB.follow(driveLeftA);
+          driveRightA.set(speed);
+          driveRightB.follow(driveRightA);
+
+          try {
+            Thread.sleep(25);
+          } catch(InterruptedException e) {
+
+          }
+
+          totalTime += 0.025;
+        }
+
+        while(speed < 0) {
+          speed += 0.025;
+          driveLeftA.set(speed);
+          driveLeftB.follow(driveLeftA);
+          driveRightA.set(speed);
+          driveRightB.follow(driveRightA);
+
+          try {
+            Thread.sleep(25);
+          } catch(InterruptedException e) {
+
+          }
+        }
+      }
+    }
+  }
+
+  /*public void scoreConeTop() {
     targetArmAngle = Constants.topConeAngle;
     targetExtensionLength = Constants.topArmExtention;
 
@@ -936,7 +1096,7 @@ public class Robot extends TimedRobot {
 
     clawSolenoid1.set(DoubleSolenoid.Value.kReverse);
     clawSolenoid2.set(DoubleSolenoid.Value.kReverse);
-  }
+  }*/
 
   //Recommended increment value of 0.025 with a sleep of 25
   //Absolute value of target speed should equal each other
@@ -1001,7 +1161,7 @@ public class Robot extends TimedRobot {
     }
   }
   
-  public void scoreCubeTop() {
+  /*public void scoreCubeTop() {
     //Code for scoring a cube
   }
 
@@ -1157,19 +1317,19 @@ public class Robot extends TimedRobot {
         driveLeftA.set(1);
         driveRightA.set(-1);
       }
-      /**while((Timer.getFPGATimestamp() - tempTime) < Math.pow(10, -10)) {}
+      while((Timer.getFPGATimestamp() - tempTime) < Math.pow(10, -10)) {}
       double prevAngularVelocity = 0.0;
       double angularVelocity = (angle - tempAngle) / (Timer.getFPGATimestamp() - tempTime);
       double angularAccel = (angularVelocity - prevAngularVelocity) / (Timer.getFPGATimestamp() - tempTime);
       tempAngle = angle;
-      tempTime = Timer.getFPGATimestamp();*/
+      tempTime = Timer.getFPGATimestamp();
       //Might have to change to quarter-circle calculations instead
       while(Math.abs(targetAngle - (angle + (((angularVelocity / angularAccel) * angularVelocity) / 2.0))) > Constants.angleTolerance) {
-        /**prevAngularVelocity = angularVelocity;
+        prevAngularVelocity = angularVelocity;
         angularVelocity += (angle - tempAngle) / (Timer.getFPGATimestamp() - tempTime);
         angularAccel += (angularVelocity - prevAngularVelocity) / (Timer.getFPGATimestamp() - tempTime);
         tempAngle = angle;
-        tempTime = Timer.getFPGATimestamp();*/
+        tempTime = Timer.getFPGATimestamp();
       }
       //Might need to be 0 and -1
       if(less180) {
@@ -1192,5 +1352,5 @@ public class Robot extends TimedRobot {
     }
 
     return false;
-  }
+  }*/
 }

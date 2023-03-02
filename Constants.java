@@ -6,6 +6,9 @@ public class Constants
 
     public static final boolean blueAlliance = true;
 
+    public static final double positionTolerance = 0.1;
+    public static final double angleTolerance = 0.5;
+
     //Milliseconds, need to find actual values
     public static final double driveOutTime = 100;
     public static final double spinTime = 100;
@@ -50,9 +53,6 @@ public class Constants
     //The amount the position can be off of the target position
     public static final double yPositionTolerance = 0.05;
     public static final double xPositionTolerance = 0.05;
-    public static final double positionTolerance = 0.05;
-
-    public static final double angleTolerance = 0.0;
 
     public static final double yLineTolerance = 0.0;
 
