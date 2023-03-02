@@ -43,13 +43,15 @@
         }
       }
     }*/
+    
+    rampUp(-0.1, -0.1, 0.05, 15);
 
-    leftSpeed = -0.1;
-    rightSpeed = -0.1;
+    //leftSpeed = -0.1;
+    //rightSpeed = -0.1;
 
-    rampUp(-0.3, -0.3, 0.025, 25);
+    rampUp(-0.5, -0.5, 0.03, 20);
 
-    rampUp(-0.1, -0.1, 0.025, 25);
+    rampUp(0.0, 0.0, 0.05, 15);
 
     driveLeftA.set(0);
     driveLeftB.follow(driveLeftA);
