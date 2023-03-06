@@ -8,6 +8,8 @@ public class Constants
 
     public static boolean blueAlliance = true;
 
+    public static final double balanceTolerance = 1.0;
+
     public static final double autoBackup = 0.0;
 
     public static final double armAngleTolerance = 0.0;
