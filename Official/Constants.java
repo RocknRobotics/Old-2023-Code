@@ -1,17 +1,14 @@
 package frc.robot;
+import java.util.*;
+import java.io.*;
 
 public class Constants
 {
     public static final double RampUp = 2;
 
-    public static final boolean blueAlliance = true;
+    public static boolean blueAlliance = true;
 
-    public static final double positionTolerance = 0.1;
-    public static final double angleTolerance = 0.5;
-
-    //Milliseconds, need to find actual values
-    public static final double driveOutTime = 100;
-    public static final double spinTime = 100;
+    public static final double autoBackup = 0.0;
 
     public static final double armAngleTolerance = 0.0;
     public static final double armLengthTolerance = 0.0;
@@ -53,6 +50,9 @@ public class Constants
     //The amount the position can be off of the target position
     public static final double yPositionTolerance = 0.05;
     public static final double xPositionTolerance = 0.05;
+    public static final double positionTolerance = 0.05;
+
+    public static final double angleTolerance = 0.0;
 
     public static final double yLineTolerance = 0.0;
 
@@ -72,4 +72,16 @@ public class Constants
     public static final double autoTeeterX = 0;
 
     public static final double autoTeeterY = 0;
+    /*
+    public static final String recordLoc = "";
+    public static FileWriter recorder()
+    {
+        try{
+            return new FileWriter(recordLoc, false);
+        } catch (IOException e){}
+        return null;
+        
+    }
+    */
+
 }
