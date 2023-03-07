@@ -97,6 +97,8 @@ public class Robot extends TimedRobot {
   double targetArmAngle = 0.0;
   Thread armExtensionThread;
   double targetExtensionLength = 0.0;
+  boolean runArm = false;
+  boolean extendArm = false;
 
   //Controller
   PS4Controller ps1 = new PS4Controller(0);
@@ -209,46 +211,64 @@ public class Robot extends TimedRobot {
     SmartDashboard.putBoolean("Cube", false);
 
     armAngleThread = new Thread(() -> {
-      while(Math.abs(armPotentiometer.get() - targetArmAngle) > Constants.armAngleTolerance) {
-        if(armPotentiometer.get() < targetArmAngle) {
-          armActuator.set(-1);
-        } else {
-          armActuator.set(1);
+      while(true) {
+        while(Math.abs(armPotentiometer.get() - targetArmAngle) > Constants.armAngleTolerance && runArm) {
+          if(armPotentiometer.get() < targetArmAngle) {
+            armActuator.set(-1);
+          } else {
+            armActuator.set(1);
+          }
+  
+          try {
+            Thread.sleep(250);
+          } catch(InterruptedException e) {
+            
+          }
+        }
+  
+        armActuator.set(0);
+        runArm = false;
+  
+        try {
+          Thread.sleep(1000);
+        } catch(InterruptedException e) {
+  
         }
       }
-
-      armActuator.set(0);
-
-      try {
-          Thread.sleep(100);
-        } catch(InterruptedException e) {
-
-        }
     });
-
     armAngleThread.setPriority(Thread.MIN_PRIORITY);
     armAngleThread.setDaemon(true);
+    armAngleThread.start();
 
     armExtensionThread = new Thread(() -> {
-      while(Math.abs(armExtension.get() - targetExtensionLength) > Constants.armLengthTolerance) {
-        if(armExtension.get() < targetExtensionLength) {
-          armExtension.set(-1);
-        } else {
-          armExtension.set(1);
+      while(true) {
+        while(Math.abs(armExtension.get() - targetExtensionLength) > Constants.armLengthTolerance && extendArm) {
+          if(armExtension.get() < targetExtensionLength) {
+            armExtension.set(-1);
+          } else {
+            armExtension.set(1);
+          }
+  
+          try {
+            Thread.sleep(250);
+          } catch(InterruptedException e) {
+            
+          }
+        }
+  
+        armExtension.set(0);
+        extendArm = false;
+  
+        try {
+          Thread.sleep(1000);
+        } catch(InterruptedException e) {
+  
         }
       }
-
-      armExtension.set(0);
-
-      try {
-          Thread.sleep(100);
-        } catch(InterruptedException e) {
-
-        }
     });
-
     armExtensionThread.setPriority(Thread.MIN_PRIORITY);
     armExtensionThread.setDaemon(true);
+    armExtensionThread.start();
   }
 
   @Override
@@ -256,7 +276,35 @@ public class Robot extends TimedRobot {
     PneumaticsCompressor.enableAnalog(100, 120);
     autoStart = Timer.getFPGATimestamp();
 
-    //Raise arm and score cone high (will happen in every position)
+    clawSolenoid1.set(DoubleSolenoid.Value.kForward);
+    clawSolenoid2.set(DoubleSolenoid.Value.kForward);
+
+    armActuator.set(1);
+    armExtension.set(1);
+
+    while(Math.abs(armActuator.get() - 0.442) > 0.015 && Math.abs(armExtensionPotentiometer.get() - 0.72) > 0.03) {
+      if(Math.abs(armActuator.get() - 0.442) > 0.01) {
+        armActuator.set(0);
+      }
+      if(Math.abs(armExtensionPotentiometer.get() - 0.72) > 0.02) {
+        armExtension.set(0);
+      }
+
+      try {
+        Thread.sleep(25);
+      } catch(InterruptedException e) {
+
+      }
+    }
+
+    clawSolenoid1.set(DoubleSolenoid.Value.kReverse);
+    clawSolenoid2.set(DoubleSolenoid.Value.kReverse);
+
+    //We can get rid of this if we want the arm to stay high
+    targetArmAngle = 0.1;
+    targetExtensionLength = 0.1;
+    runArm = true;
+    extendArm = true;
 
     if(SmartDashboard.getBoolean("Edge Start", false)) {
       rampDown(-0.5, -0.5, 0.025, 50);
@@ -286,39 +334,11 @@ public class Robot extends TimedRobot {
 
       }
 
-      //Might have to change these
-      double kp = 1.0;
-      double ki = 1.0;
-      double kd = 1.0;
-      double p = 0.0; //Gyro.getZ();
-      double i = 0.0; //Integral added over time
-      double currTime = Timer.getFPGATimestamp(); //Needed for integral and derivative
-      double d = 0.0; //Derivative of p
-      double prevP = 0.0; //Required for derivative
-
-      while(Math.abs(/*Gyro.getZ() */ - 0.0) > Constants.balanceTolerance) {
-        prevP = p;
-        p = 0.0; //Gyro.getZ();
-        i = (Timer.getFPGATimetamp() - currTime) * p;
-        d = (p - prevP) / (Timer.getFPGATimestamp() - currTime);
-        currTime = Timer.getFPGATimestamp();
-
-        double motorOutput = kp * p + ki * i + kd * d;
-
-        driveLeftA.set(motorOutput);
-        driveLeftB.follow(driveLeftA);
-        driveRightA.set(motorOutput);
-        driveRightb.follow(driveRightA);
-
-        try {
-          Thread.sleep(1);
-        } catch(InterruptedException e) {
-          
-        }
-      }
+      teeterBalance(14.5);
     }
 
 
+    /*
     //Start Compressor
     PneumaticsCompressor.enableAnalog(100, 120);
     // get a time for auton start to do events based on time later
@@ -356,13 +376,13 @@ public class Robot extends TimedRobot {
     }
 
     //Stop Arm
-    armActuator.set(0);
+    armActuator.set(0);*/
   }
 
   /** This function is called periodically during autonomous. */
   @Override
   public void autonomousPeriodic() {
-    
+    //Rip this I guess
   }
 
   /** This function is called once when teleop is enabled. */
@@ -600,5 +620,53 @@ public class Robot extends TimedRobot {
 
           try {Thread.sleep(sleepyTime);} catch(InterruptedException e) {}
       }
+    }
+
+    //Give the time since the start of the match (in seconds) for the method to balance until
+    //Needs to be anywhere on teeter (literally being on the very beginning slant would probably still work)
+    public void teeterBalance(double targetTime) {
+      //Need to do testing to figure these out
+      double kp = 1.0;
+      double ki = 1.0;
+      double kd = 1.0;
+      double p = 0.0; //Gyro.getZ();
+      double i = 0.0; //Integral added over time
+      double currTime = Timer.getFPGATimestamp(); //Needed for integral and derivative
+      double d = 0.0; //Derivative of p
+      double prevP = 0.0; //Required for derivative
+
+      while(Timer.getFPGATimestamp() - autoStart < targetTime) {
+        //Yay calculus
+        prevP = p;
+        p = 0.0; //Gyro.getZ();
+        i += (Timer.getFPGATimetamp() - currTime) * p; //Integral is summation of p over time
+        d = (p - prevP) / (Timer.getFPGATimestamp() - currTime); //Definition of a derivative
+        currTime = Timer.getFPGATimestamp();
+
+        double motorOutput = kp * p + ki * i + kd * d;
+
+        if(Math.abs(/*Gyro.getY() */ - 180) < 10) {
+          //This might be swapped, just checks which way it's facing so it doesn't go zooming off from incorrect motor feedback
+          motorOutput *= -1;
+        }
+        
+        //Hopefully the pid accounts for not deciding to suddenly go from 1 to -1? We'll see
+        driveLeftA.set(motorOutput);
+        driveLeftB.follow(driveLeftA);
+        driveRightA.set(motorOutput);
+        driveRightb.follow(driveRightA);
+
+        try {
+          Thread.sleep(5); //I mean in theory this would be the only process running, but on the other hand let's not kill the roborio
+        } catch(InterruptedException e) {
+          
+        }
+      }
+
+      //Just to be safe
+      driveLeftA.set(0);
+      driveLeftB.follow(driveLeftA);
+      driveRightA.set(0);
+      driveRightB.follow(driveRightA);
     }
 }

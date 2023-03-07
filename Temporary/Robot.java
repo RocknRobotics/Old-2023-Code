@@ -201,27 +201,29 @@ public class Robot extends TimedRobot {
     SmartDashboard.putBoolean("Cube", false);
 
     armAngleThread = new Thread(() -> {
-      while(Math.abs(armPotentiometer.get() - targetArmAngle) > Constants.armAngleTolerance && runArm) {
-        if(armPotentiometer.get() < targetArmAngle) {
-          armActuator.set(-1);
-        } else {
-          armActuator.set(1);
+      while(true) {
+        while(Math.abs(armPotentiometer.get() - targetArmAngle) > Constants.armAngleTolerance && runArm) {
+          if(armPotentiometer.get() < targetArmAngle) {
+            armActuator.set(-1);
+          } else {
+            armActuator.set(1);
+          }
+  
+          try {
+            Thread.sleep(250);
+          } catch(InterruptedException e) {
+            
+          }
         }
-
+  
+        armActuator.set(0);
+        runArm = false;
+  
         try {
-          Thread.sleep(250);
+          Thread.sleep(1000);
         } catch(InterruptedException e) {
-          
+  
         }
-      }
-
-      armActuator.set(0);
-      runArm = false;
-
-      try {
-        Thread.sleep(1000);
-      } catch(InterruptedException e) {
-
       }
     });
     armAngleThread.setPriority(Thread.MIN_PRIORITY);
@@ -229,27 +231,29 @@ public class Robot extends TimedRobot {
     armAngleThread.start();
 
     armExtensionThread = new Thread(() -> {
-      while(Math.abs(armExtension.get() - targetExtensionLength) > Constants.armLengthTolerance && extendArm) {
-        if(armExtension.get() < targetExtensionLength) {
-          armExtension.set(-1);
-        } else {
-          armExtension.set(1);
+      while(true) {
+        while(Math.abs(armExtension.get() - targetExtensionLength) > Constants.armLengthTolerance && extendArm) {
+          if(armExtension.get() < targetExtensionLength) {
+            armExtension.set(-1);
+          } else {
+            armExtension.set(1);
+          }
+  
+          try {
+            Thread.sleep(250);
+          } catch(InterruptedException e) {
+            
+          }
         }
-
+  
+        armExtension.set(0);
+        extendArm = false;
+  
         try {
-          Thread.sleep(250);
+          Thread.sleep(1000);
         } catch(InterruptedException e) {
-          
+  
         }
-      }
-
-      armExtension.set(0);
-      extendArm = false;
-
-      try {
-        Thread.sleep(1000);
-      } catch(InterruptedException e) {
-
       }
     });
     armExtensionThread.setPriority(Thread.MIN_PRIORITY);

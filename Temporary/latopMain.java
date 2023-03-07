@@ -248,7 +248,7 @@ public class laptopMain {
         angleVelocity /= robotRadius;
 
         //Integrate
-        angle += angleVelocity * (SmartDashboard.getNumber("FPGA Time", 0.0) - currTime);
+        angle = SmartDashboard.getNumber("Angle", angle) + angleVelocity * (SmartDashboard.getNumber("FPGA Time", 0.0) - currTime);
         //So it won't spend extra time going from something like 4 pi to -4 pi
         angle %= (Math.PI * 2);
         //Definition of derivative
@@ -261,8 +261,8 @@ public class laptopMain {
         velocityX = Math.cos(angle) * totVelocity;
         velocityY = Math.sin(angle) * totVelocity;
         //Integrate
-        positionX += velocityX * (SmartDashboard.getNumber("FPGA Time", 0.0) - currTime);
-        positionY += velocityY * (SmartDashboard.getNumber("FPGA Time", 0.0) - currTime);
+        positionX = SmartDashboard.getNumber("Position X", positionX) + velocityX * (SmartDashboard.getNumber("FPGA Time", 0.0) - currTime);
+        positionY = SmartDashboard.getNumber("Position Y", positionY) + velocityY * (SmartDashboard.getNumber("FPGA Time", 0.0) - currTime);
         //Derive
         accelX = (velocityX - prevVelocityX) / (SmartDashboard.getNumber("FPGA Time", 0.0) - currTime);
         accelY = (velocityY - prevVelocityY) / (SmartDashboard.getNumber("FPGA Time", 0.0) - currTime);
@@ -384,7 +384,7 @@ public class laptopMain {
       boolean teeter = SmartDashboard.getBoolean("Teeter", false);
 
       RamseteController controller = new RamseteController();
-      DifferentialDriveKinematics helper = new DifferentialDriveKinematics(0.0);
+      DifferentialDriveKinematics helper = new DifferentialDriveKinematics(0.0); //Need distance between robot wheels
       DifferentialDriveWheelSpeeds wheelSpeeds;
 
       if(autoDrive && !teeter) {
@@ -397,13 +397,13 @@ public class laptopMain {
             targTrajectory = toStation[targetStation - 1];
           } else {
             //Create new trajectory
-            ControlVector initial = new QuinticHermiteSpline.ControlVector(new double[]{positionY, velocityY, accelY}, new double[]{positionX, velocityX, accelX});
-            ControlVector station = new QuinticHermiteSpline.ControlVector(new double[]{stationY[targetStation - 1], 0.0, 0.0}, new double[]{stationX, 0.0, 0.0});
+            ControlVector initial = new QuinticHermiteSpline.ControlVector(new double[]{positionX, velocityX, accelX}, new double[]{positionY, velocityY, accelY});
+            ControlVector station = new QuinticHermiteSpline.ControlVector(new double[]{stationX, 0.0, 0.0}, new double[]{stationY[targetStation - 1], 0.0, 0.0});
 
             List<Translation2d> wayPoints = new ArrayList<Translation2d>();
 
             for(int i = 0; i < shelfToStationWaypoints.size(); i++) {
-              if(shelfToStationWaypoints.get(i).getY() <= positionY) {
+              if(shelfToStationWaypoints.get(i).getY() < positionY) {
                 wayPoints.add(shelfToStationWaypoints.get(i));
               }
             }
@@ -418,13 +418,13 @@ public class laptopMain {
 
           } else {
             //Create new
-            ControlVector initial = new QuinticHermiteSpline.ControlVector(new double[]{positionY, velocityY, accelY}, new double[]{positionX, velocityX, accelX});
-            ControlVector shelf = new QuinticHermiteSpline.ControlVector(new double[]{shelfY, 0.0, 0.0}, new double[]{shelfX, 0.0, 0.0});
+            ControlVector initial = new QuinticHermiteSpline.ControlVector(new double[]{positionX, velocityX, accelX}, new double[]{positionY, velocityY, accelY});
+            ControlVector shelf = new QuinticHermiteSpline.ControlVector(new double[]{shelfX, 0.0, 0.0}, new double[]{shelfY, 0.0, 0.0});
 
             List<Translation2d> wayPoints = new ArrayList<Translation2d>();
 
             for(int i = 0; i < stationToShelfWaypoints.size(); i++) {
-              if(stationToShelfWaypoints.get(i).getY() >= positionY) {
+              if(stationToShelfWaypoints.get(i).getY() > positionY) {
                 wayPoints.add(stationToShelfWaypoints.get(i));
               }
             }
@@ -436,7 +436,7 @@ public class laptopMain {
         double tempTime = SmartDashboard.getNumber("FPGA Time", 0.0);
         for(double time = SmartDashboard.getNumber("FPGA Time", 0.0); time < targTrajectory.getTotalTimeSeconds() && SmartDashboard.getBoolean("Auto Drive", false); time = SmartDashboard.getNumber("FPGA Time", 0.0)) {
           Trajectory.State goalState = toStation[targetStation - 1].sample(time - tempTime);
-          ChassisSpeeds adjustedSpeeds = controller.calculate(new Pose2d(positionY, positionX, new Rotation2d(angle)), goalState);
+          ChassisSpeeds adjustedSpeeds = controller.calculate(new Pose2d(positionX, positionY, new Rotation2d(angle)), goalState);
           wheelSpeeds = helper.toWheelSpeeds(adjustedSpeeds);
 
           SmartDashboard.putNumber("Target Left Speed", wheelSpeeds.leftMetersPerSecond);
@@ -488,21 +488,20 @@ public class laptopMain {
           targetY = Units.inchesToMeters(156.64) - (robotWidth / 2.0);
         }
 
-        Pose2d currentPose2d = new Pose2d(positionY, positionX, new Rotation2d(angle));
+        Pose2d currentPose2d = new Pose2d(positionX, positionY, new Rotation2d(angle));
         Pose2d targetPose2d;
-        //Pose2d targetPose2d = new Pose2d(targetY, targetX, new Rotation2d(targetAngle));
 
         if(SmartDashboard.getBoolean("Blue Alliance", true)) {
           if(positionX >= belowX && positionX <= aboveX && positionY <= Units.inchesToMeters(59.39) + (robotWidth / 2.0) && positionY >= Units.inchesToMeters(156.64) - (robotWidth / 2.0)) {
-            targetPose2d = new Pose2d(positionY, Units.inchesToMeters(151), new Rotation2d(angle));
+            targetPose2d = new Pose2d(Units.inchesToMeters(151), positionY, new Rotation2d(angle));
           } else {
-            targetPose2d = new Pose2d(targetY, targetX, new Rotation2d(targetAngle));
+            targetPose2d = new Pose2d(targetX, targetY, new Rotation2d(targetAngle));
           }
         } else {
           if(positionX <= belowX && positionX >= aboveX && positionY <= Units.inchesToMeters(59.39) + (robotWidth / 2.0) && positionY >= Units.inchesToMeters(156.64) - (robotWidth / 2.0)) {
-            targetPose2d = new Pose2d(positionY, fieldLength - Units.inchesToMeters(151), new Rotation2d(angle));
+            targetPose2d = new Pose2d(fieldLength - Units.inchesToMeters(151), positionY, new Rotation2d(angle));
           } else {
-            targetPose2d = new Pose2d(targetY, targetX, new Rotation2d(targetAngle));
+            targetPose2d = new Pose2d(targetX, targetY, new Rotation2d(targetAngle));
           }
         }
 
