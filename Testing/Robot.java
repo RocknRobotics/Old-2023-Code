@@ -5,9 +5,7 @@
 package frc.robot;
 
 //Java stuff
-import java.io.*;
 import java.text.*;
-import java.util.*;
 
 //Motors
 import com.revrobotics.CANSparkMax;
@@ -22,28 +20,17 @@ import edu.wpi.first.wpilibj.PneumaticsControlModule;
 import edu.wpi.first.wpilibj.PneumaticsModuleType;
 import edu.wpi.first.wpilibj.Compressor;
 
-//Images
-import org.opencv.core.Mat;
-import org.opencv.core.Point;
-import org.opencv.core.Scalar;
-import org.opencv.imgproc.Imgproc;
-
 //Camera
 import edu.wpi.first.cameraserver.CameraServer;
-import edu.wpi.first.cscore.CvSink;
-import edu.wpi.first.cscore.CvSource;
-import edu.wpi.first.cscore.VideoSource;
 import edu.wpi.first.cscore.UsbCamera;
-import edu.wpi.first.cscore.VideoMode.PixelFormat;
-import edu.wpi.first.cscore.VideoSink;
 import edu.wpi.first.networktables.NetworkTableEntry;
 import edu.wpi.first.networktables.NetworkTableInstance;
 
-//Accelerometer
-import edu.wpi.first.wpilibj.BuiltInAccelerometer;
-import edu.wpi.first.wpilibj.interfaces.Accelerometer;
+import com.kauailabs.navx.IMUProtocol.GyroUpdate;
 import com.kauailabs.navx.frc.AHRS;
-import edu.wpi.first.wpilibj.I2C.Port;
+
+//Gyro
+import edu.wpi.first.wpilibj.SPI.Port;
 
 //Potentiometer
 import edu.wpi.first.wpilibj.AnalogPotentiometer;
@@ -51,13 +38,10 @@ import edu.wpi.first.wpilibj.AnalogPotentiometer;
 //timer
 import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj.Timer;
-import edu.wpi.first.wpilibj.GenericHID.RumbleType;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 
 //Controller
 import edu.wpi.first.wpilibj.PS4Controller;
-import edu.wpi.first.math.controller.PIDController;
-import edu.wpi.first.util.sendable.Sendable;
 
 public class Robot extends TimedRobot {
 
@@ -82,11 +66,26 @@ public class Robot extends TimedRobot {
   //Camera Servo
   Servo cameraServo = new Servo(0);
 
+  //Accelerometer
+  AHRS Gyro = new AHRS();
+
   //Pneumatics
   PneumaticsControlModule PneumaticsControl = new PneumaticsControlModule();
   Compressor PneumaticsCompressor = new Compressor(PneumaticsModuleType.CTREPCM);
   DoubleSolenoid clawSolenoid1 = new DoubleSolenoid(0, PneumaticsModuleType.CTREPCM, 0, 1);
   DoubleSolenoid clawSolenoid2 = new DoubleSolenoid(0, PneumaticsModuleType.CTREPCM, 2, 3);
+
+
+  // accelerometer
+  //Parameter order
+  //SPI.Port---The port used to connect to the navX (can be a I2C.Port instead) (this might just be a number, I'm not sure)
+  //int---the bitrate of the sensor (max 2,000,000)
+  //int---the update rate of the sensor sending us data (4 - 200)
+  double servoAngle = 0;
+
+  double accelTime = Timer.getFPGATimestamp();
+
+  Thread accelThread;
 
   //Potentiometer
   AnalogPotentiometer armPotentiometer = new AnalogPotentiometer(1);
@@ -121,6 +120,10 @@ public class Robot extends TimedRobot {
   double rightSpeed = 0;
   boolean stopped1 = false;
   boolean stopped2 = false;
+
+  //Temp speed since we have a new arm (don't want to kill someone using old speed)
+  double armSpeed = 0.1;
+
 
  //Station (starting position) and cone/cube
   int station = -1;
@@ -180,43 +183,41 @@ public class Robot extends TimedRobot {
     SmartDashboard.putString("DRIVE CONTROL", "OFF");
     SmartDashboard.putString("ARM CONTROL", "OFF");
 
+    // accelerometers
+    SmartDashboard.putNumber("Yaw", Gyro.getYaw());
+    SmartDashboard.putNumber("Roll", Gyro.getRoll());
+    SmartDashboard.putNumber("Pitch", Gyro.getPitch());
+    SmartDashboard.putNumber("arm potentiometer", armPotentiometer.get());
+    SmartDashboard.putNumber("arm extension", armExtensionPotentiometer.get());
+    SmartDashboard.putNumber("Position X", Gyro.getDisplacementX());
+    SmartDashboard.putNumber("Position Y", Gyro.getDisplacementY());
+    SmartDashboard.putNumber("Position Z", Gyro.getDisplacementZ());
+    SmartDashboard.putNumber("Left Motor", driveLeftA.get());
+    SmartDashboard.putNumber("Right Motor", driveRightA.get());
+    SmartDashboard.putNumber("Velocity X", Gyro.getVelocityX());
+    SmartDashboard.putNumber("Velocity Y", Gyro.getVelocityY());
+    SmartDashboard.putNumber("Velocity Z", Gyro.getVelocityZ());
+    SmartDashboard.putNumber("Accel X", Gyro.getWorldLinearAccelX());
+    SmartDashboard.putNumber("Accel Y", Gyro.getWorldLinearAccelY());
+    SmartDashboard.putNumber("Accel Z", Gyro.getWorldLinearAccelZ());
+    SmartDashboard.putBoolean("Test", false);
+    SmartDashboard.putNumber("Arm Extension", 0.0);
+    SmartDashboard.putNumber("Arm Actuator", 0.0);
+    SmartDashboard.putBoolean("Enable Digital", false);
+
+    //Station number---All start in front of a cone stand (for now)
     SmartDashboard.putBoolean("Edge Start", false);
     SmartDashboard.putBoolean("Center Start", false);
 
-    // accelerometers
-    SmartDashboard.putNumber("accelerometer X", accelerometer.getWorldLinearAccelX());
-    SmartDashboard.putNumber("accelerometer Z", accelerometer.getWorldLinearAccelZ());
-    SmartDashboard.putNumber("accelerometer Y", accelerometer.getWorldLinearAccelY());
-    SmartDashboard.putNumber("Velocity X (left/right)", accelerometer.getVelocityX());
-    SmartDashboard.putNumber("Velocity Z (Forwards/Backwards)", accelerometer.getVelocityZ());
-    SmartDashboard.putNumber("Velocity Y (Up/Down)", accelerometer.getVelocityY());
-    SmartDashboard.putNumber("Position X (left/right)", accelerometer.getDisplacementX());
-    SmartDashboard.putNumber("Position Z (Forwards/Backwards)", accelerometer.getDisplacementZ());
-    SmartDashboard.putNumber("Position Y (Up/Down)", accelerometer.getDisplacementY());
-    SmartDashboard.putNumber("Angular Acceleration", angularAccel);
-    SmartDashboard.putNumber("Angular Velocity", angularVelocity);
-    SmartDashboard.putNumber("Angle", angle);
-    SmartDashboard.putNumber("arm potentiometer", armPotentiometer.get());
-    SmartDashboard.putNumber("arm extension", armExtensionPotentiometer.get());
-
-    //Station number---All start in front of a cone stand (for now)
-    //Left far end
-    SmartDashboard.putBoolean("Station 1", false);
-    //Middle
-    SmartDashboard.putBoolean("Station 2", false);
-    //Right far end
-    SmartDashboard.putBoolean("Station 3", false);
-    //Cone or Cube to pick up
-    SmartDashboard.putBoolean("Cone", false);
-    SmartDashboard.putBoolean("Cube", false);
+    //SmartDashboard.putBoolean("Auto Balance", false);
 
     armAngleThread = new Thread(() -> {
       while(true) {
         while(Math.abs(armPotentiometer.get() - targetArmAngle) > Constants.armAngleTolerance && runArm) {
           if(armPotentiometer.get() < targetArmAngle) {
-            armActuator.set(-1);
+            armActuator.set(-1 * armSpeed);
           } else {
-            armActuator.set(1);
+            armActuator.set(1 * armSpeed);
           }
   
           try {
@@ -226,7 +227,7 @@ public class Robot extends TimedRobot {
           }
         }
   
-        armActuator.set(0);
+        armActuator.set(0 * armSpeed);
         runArm = false;
   
         try {
@@ -244,9 +245,9 @@ public class Robot extends TimedRobot {
       while(true) {
         while(Math.abs(armExtension.get() - targetExtensionLength) > Constants.armLengthTolerance && extendArm) {
           if(armExtension.get() < targetExtensionLength) {
-            armExtension.set(-1);
+            armExtension.set(-1 * armSpeed);
           } else {
-            armExtension.set(1);
+            armExtension.set(1 * armSpeed);
           }
   
           try {
@@ -256,7 +257,7 @@ public class Robot extends TimedRobot {
           }
         }
   
-        armExtension.set(0);
+        armExtension.set(0 * armSpeed);
         extendArm = false;
   
         try {
@@ -276,18 +277,23 @@ public class Robot extends TimedRobot {
     PneumaticsCompressor.enableAnalog(100, 120);
     autoStart = Timer.getFPGATimestamp();
 
-    clawSolenoid1.set(DoubleSolenoid.Value.kForward);
-    clawSolenoid2.set(DoubleSolenoid.Value.kForward);
+    clawSolenoid1.set(DoubleSolenoid.Value.kReverse);
+    clawSolenoid2.set(DoubleSolenoid.Value.kReverse);
 
-    armActuator.set(1);
+    armActuator.set(1 * armSpeed);
+    try {
+      Thread.sleep(1000);
+    } catch(InterruptedException e) {
+      
+    }
     armExtension.set(1);
 
-    while(Math.abs(armActuator.get() - 0.442) > 0.015 && Math.abs(armExtensionPotentiometer.get() - 0.72) > 0.03) {
-      if(Math.abs(armActuator.get() - 0.442) > 0.01) {
-        armActuator.set(0);
+    while(armActuator.get() - 0.427 > 0.015 && armExtensionPotentiometer.get() - 0.69 > 0.03) {
+      if(armActuator.get() - 0.44 > 0.01) {
+        armActuator.set(0 * armSpeed);
       }
-      if(Math.abs(armExtensionPotentiometer.get() - 0.72) > 0.02) {
-        armExtension.set(0);
+      if(armExtensionPotentiometer.get() - 0.7 > 0.02) {
+        armExtension.set(0 * armSpeed);
       }
 
       try {
@@ -297,8 +303,8 @@ public class Robot extends TimedRobot {
       }
     }
 
-    clawSolenoid1.set(DoubleSolenoid.Value.kReverse);
-    clawSolenoid2.set(DoubleSolenoid.Value.kReverse);
+    clawSolenoid1.set(DoubleSolenoid.Value.kForward);
+    clawSolenoid2.set(DoubleSolenoid.Value.kForward);
 
     //We can get rid of this if we want the arm to stay high
     targetArmAngle = 0.1;
@@ -336,53 +342,12 @@ public class Robot extends TimedRobot {
 
       teeterBalance(14.5);
     }
-
-
-    /*
-    //Start Compressor
-    PneumaticsCompressor.enableAnalog(100, 120);
-    // get a time for auton start to do events based on time later
-    autoStart = Timer.getFPGATimestamp();
-
-    rampUp(0.4, 0.4,0.025,50);
-    rampDown(-0.4, -0.4, 0.025, 50);
-    rampUp(-0.1, -0.1, 0.025, 50);
-
-    driveLeftA.set(0);
-    driveLeftB.follow(driveLeftA);
-    driveRightA.set(0);
-    driveRightB.follow(driveRightA); 
-
-    rampUp(0.5, 0.5, 0.025, 50);
-
-    try{
-      Thread.sleep(750);
-    } catch(InterruptedException e){
-
-    }
-
-    rampDown(0, 0, 0.025, 50);
-
-    driveLeftA.set(0);
-    driveLeftB.follow(driveLeftA);
-    driveRightA.set(0);
-    driveRightB.follow(driveRightA); 
-
-    armActuator.set(1);
-    try{
-      Thread.sleep(3000);
-    } catch(InterruptedException e){
-
-    }
-
-    //Stop Arm
-    armActuator.set(0);*/
   }
 
   /** This function is called periodically during autonomous. */
   @Override
   public void autonomousPeriodic() {
-    //Rip this I guess
+    
   }
 
   /** This function is called once when teleop is enabled. */
@@ -392,15 +357,20 @@ public class Robot extends TimedRobot {
     PneumaticsCompressor.enableAnalog(100, 120);
     SmartDashboard.putString("DRIVE CONTROL", "ON");
     SmartDashboard.putString("ARM CONTROL", "ON");
+    Gyro.reset();
   }
 
   /** This function is called periodically during operator control. */
   @Override
   public void teleopPeriodic() {
+    /*if(SmartDashboard.getBoolean("Auto Balance", false)) {
+      teeterBalance(Timer.getFPGATimestamp() - autoStart + 15);
+    }*/
 
     //disable(no movement and brakes) and enable(movement and maybe doesnt brake)
     if (ps1.getPSButtonPressed()) {
-      stopped1 = !stopped1;
+      //stopped1 = !stopped1;
+      teeterBalance(Timer.getFPGATimestamp() - autoStart + 10);
     }
 
     if (ps2.getPSButtonPressed()) {
@@ -468,11 +438,12 @@ public class Robot extends TimedRobot {
         armActuator.set(0);
       }
 
-      if (ps2.getLeftY() < -0.5 && armExtensionPotentiometer.get() < 0.72) {
+      if (ps2.getLeftY() < -0.5 /*&& armExtensionPotentiometer.get() < 0.72*/) {
         armExtension.set(1);
-      } else if (ps2.getLeftY() > 0.5 && armExtensionPotentiometer.get() > 0.05) {
+      } else if (ps2.getLeftY() > 0.5 /*&& armExtensionPotentiometer.get() > 0.05*/) {
         armExtension.set(-1);
       } else {
+        //armExtension.set(0.05 * armSpeed);
         armExtension.set(0);
       }
 
@@ -500,38 +471,43 @@ public class Robot extends TimedRobot {
         topcam = false;
       }
 
-      if (ps2.getR3Button()) {
-        //PneumaticsCompressor.enableDigital();
-      } else if (ps2.getL3Button()) {
-        PneumaticsCompressor.disable();
-      }
-
       SmartDashboard.putString("ARM CONTROL", "ON");
     } else {
       SmartDashboard.putString("ARM CONTROL", "OFF");
     } 
 
+    //Reading measurements
+    SmartDashboard.putNumber("Yaw", Gyro.getYaw());
+    SmartDashboard.putNumber("Roll", Gyro.getRoll());
+    SmartDashboard.putNumber("Pitch", Gyro.getPitch());
     SmartDashboard.putNumber("arm potentiometer", armPotentiometer.get());
     SmartDashboard.putNumber("arm extension", armExtensionPotentiometer.get());
+    SmartDashboard.putNumber("Position X", Gyro.getDisplacementX());
+    SmartDashboard.putNumber("Position Y", Gyro.getDisplacementY());
+    SmartDashboard.putNumber("Position Z", Gyro.getDisplacementZ());
+    SmartDashboard.putNumber("Left Motor", driveLeftA.get());
+    SmartDashboard.putNumber("Right Motor", driveRightA.get());
+    SmartDashboard.putNumber("Velocity X", Gyro.getVelocityX());
+    SmartDashboard.putNumber("Velocity Y", Gyro.getVelocityY());
+    SmartDashboard.putNumber("Velocity Z", Gyro.getVelocityZ());
+    SmartDashboard.putNumber("Accel X", Gyro.getWorldLinearAccelX());
+    SmartDashboard.putNumber("Accel Y", Gyro.getWorldLinearAccelY());
+    SmartDashboard.putNumber("Accel Z", Gyro.getWorldLinearAccelZ());
+
+    if(SmartDashboard.getBoolean("Enable Digital", false)) {
+      SmartDashboard.putBoolean("Enable Digital", false);
+      PneumaticsCompressor.enableDigital();
+    }
+
+    /*armExtension.set(armSpeed * SmartDashboard.getNumber("Arm Extension", 0.0));
+    armActuator.set(armSpeed * SmartDashboard.getNumber("Arm Actuator", 0.0));
+    try {
+      Thread.sleep(50);
+    } catch(InterruptedException e) {
+
+    }*/
   }
 
-  /* 
-  private FileWriter recorder = Constants.recorder();
-  public void practiceInit()
-  {}
-
-  public void practicePeriodic()
-  {
-    if (recorder == null)
-    {
-      return;
-    }
-    if (ps1.getCircleButton())
-    {
-      recorder.write("C" + true);
-    }
-  }
-*/
   @Override
   public void disabledInit() {
     // On disable turn off everything
@@ -541,8 +517,8 @@ public class Robot extends TimedRobot {
     driveLeftB.set(0);
     driveRightA.set(0);
     driveRightB.set(0);
-    armActuator.set(0);
-    armExtension.set(0);
+    armActuator.set(0 * armSpeed);
+    armExtension.set(0 * armSpeed);
     PneumaticsControl.disableCompressor();
     clawSolenoid1.set(DoubleSolenoid.Value.kOff);
     clawSolenoid2.set(DoubleSolenoid.Value.kOff);
@@ -622,42 +598,49 @@ public class Robot extends TimedRobot {
       }
     }
 
-    //Give the time since the start of the match (in seconds) for the method to balance until
+   //Give the time since the start of the match (in seconds) for the method to balance until
     //Needs to be anywhere on teeter (literally being on the very beginning slant would probably still work)
     public void teeterBalance(double targetTime) {
       //Need to do testing to figure these out
       double kp = 1.0;
       double ki = 1.0;
       double kd = 1.0;
-      double p = 0.0; //Gyro.getZ();
-      double i = 0.0; //Integral added over time
+      double p = Gyro.getRoll();
+      double i = 0.0; //Integral of p
       double currTime = Timer.getFPGATimestamp(); //Needed for integral and derivative
       double d = 0.0; //Derivative of p
-      double prevP = 0.0; //Required for derivative
+      double prevP = Gyro.getRoll(); //Required for derivative
 
       while(Timer.getFPGATimestamp() - autoStart < targetTime) {
         //Yay calculus
         prevP = p;
-        p = 0.0; //Gyro.getZ();
-        i += (Timer.getFPGATimetamp() - currTime) * p; //Integral is summation of p over time
+        p = Gyro.getRoll();
+        i += (Timer.getFPGATimestamp() - currTime) * p; //Integral is summation of p over time
         d = (p - prevP) / (Timer.getFPGATimestamp() - currTime); //Definition of a derivative
         currTime = Timer.getFPGATimestamp();
 
         double motorOutput = kp * p + ki * i + kd * d;
-
-        if(Math.abs(/*Gyro.getY() */ - 180) < 10) {
-          //This might be swapped, just checks which way it's facing so it doesn't go zooming off from incorrect motor feedback
+        if(Math.abs(Gyro.getYaw() - 180) <= 10 || Math.abs(Gyro.getYaw() + 180) <= 10) {
           motorOutput *= -1;
         }
+
+        int numReduced = 0;
+
+        while(Math.abs(motorOutput) > 0.1) {
+          motorOutput /= 10.0;
+          numReduced++;
+        }
+
+        SmartDashboard.putNumber("Times Reduced", numReduced);
         
         //Hopefully the pid accounts for not deciding to suddenly go from 1 to -1? We'll see
         driveLeftA.set(motorOutput);
         driveLeftB.follow(driveLeftA);
         driveRightA.set(motorOutput);
-        driveRightb.follow(driveRightA);
+        driveRightB.follow(driveRightA);
 
         try {
-          Thread.sleep(5); //I mean in theory this would be the only process running, but on the other hand let's not kill the roborio
+          Thread.sleep(10); //I mean in theory this would be the only process running, but on the other hand let's not kill the roborio
         } catch(InterruptedException e) {
           
         }
