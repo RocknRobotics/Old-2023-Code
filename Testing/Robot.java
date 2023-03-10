@@ -26,11 +26,8 @@ import edu.wpi.first.cscore.UsbCamera;
 import edu.wpi.first.networktables.NetworkTableEntry;
 import edu.wpi.first.networktables.NetworkTableInstance;
 
-import com.kauailabs.navx.IMUProtocol.GyroUpdate;
+//Accelerometer
 import com.kauailabs.navx.frc.AHRS;
-
-//Gyro
-import edu.wpi.first.wpilibj.SPI.Port;
 
 //Potentiometer
 import edu.wpi.first.wpilibj.AnalogPotentiometer;
@@ -170,12 +167,17 @@ public class Robot extends TimedRobot {
     PneumaticsCompressor.enableDigital();
 
     //cameras
-    bottomCamera = CameraServer.startAutomaticCapture("Bottom", 0);
-    topCamera = CameraServer.startAutomaticCapture("Top", 1);
+    bottomCamera = CameraServer.startAutomaticCapture("Bottom", "/dev/video0");
+    topCamera = CameraServer.startAutomaticCapture("Top", "/dev/video1");
     cameraSelection = NetworkTableInstance.getDefault().getTable("").getEntry("CameraSelection");
     cameraSelection.setString(bottomCamera.getName());
     topcam = false;
+    bottomCamera.setFPS(10);
+    topCamera.setFPS(10);
+    bottomCamera.setResolution(360, 360);
+    topCamera.setResolution(360, 360);
 
+    SmartDashboard.setNetworkTableInstance(NetworkTableInstance.getDefault());
     // add a thing on the dashboard to turn off auto if needed
     // SmartDashboard.put
     SmartDashboard.putBoolean("Go For Auto", true);
@@ -204,34 +206,33 @@ public class Robot extends TimedRobot {
     SmartDashboard.putNumber("Arm Extension", 0.0);
     SmartDashboard.putNumber("Arm Actuator", 0.0);
     SmartDashboard.putBoolean("Enable Digital", false);
+    SmartDashboard.putBoolean("Auto Balance", false);
 
     //Station number---All start in front of a cone stand (for now)
     SmartDashboard.putBoolean("Edge Start", false);
     SmartDashboard.putBoolean("Center Start", false);
 
-    //SmartDashboard.putBoolean("Auto Balance", false);
-
     armAngleThread = new Thread(() -> {
       while(true) {
         while(Math.abs(armPotentiometer.get() - targetArmAngle) > Constants.armAngleTolerance && runArm) {
           if(armPotentiometer.get() < targetArmAngle) {
-            armActuator.set(-1 * armSpeed);
+            armActuator.set(-1);
           } else {
-            armActuator.set(1 * armSpeed);
+            armActuator.set(1);
           }
   
           try {
-            Thread.sleep(250);
+            Thread.sleep(100);
           } catch(InterruptedException e) {
             
           }
         }
   
-        armActuator.set(0 * armSpeed);
+        armActuator.set(0);
         runArm = false;
   
         try {
-          Thread.sleep(1000);
+          Thread.sleep(500);
         } catch(InterruptedException e) {
   
         }
@@ -245,23 +246,23 @@ public class Robot extends TimedRobot {
       while(true) {
         while(Math.abs(armExtension.get() - targetExtensionLength) > Constants.armLengthTolerance && extendArm) {
           if(armExtension.get() < targetExtensionLength) {
-            armExtension.set(-1 * armSpeed);
+            armExtension.set(-1);
           } else {
-            armExtension.set(1 * armSpeed);
+            armExtension.set(1);
           }
   
           try {
-            Thread.sleep(250);
+            Thread.sleep(100);
           } catch(InterruptedException e) {
             
           }
         }
   
-        armExtension.set(0 * armSpeed);
+        armExtension.set(0);
         extendArm = false;
   
         try {
-          Thread.sleep(1000);
+          Thread.sleep(500);
         } catch(InterruptedException e) {
   
         }
@@ -274,13 +275,14 @@ public class Robot extends TimedRobot {
 
   @Override
   public void autonomousInit() {
-    PneumaticsCompressor.enableAnalog(100, 120);
+    //PneumaticsCompressor.enableAnalog(100, 120);
+    PneumaticsCompressor.enableDigital();
     autoStart = Timer.getFPGATimestamp();
 
     clawSolenoid1.set(DoubleSolenoid.Value.kReverse);
     clawSolenoid2.set(DoubleSolenoid.Value.kReverse);
 
-    armActuator.set(1 * armSpeed);
+    armActuator.set(1);
     try {
       Thread.sleep(1000);
     } catch(InterruptedException e) {
@@ -290,14 +292,14 @@ public class Robot extends TimedRobot {
 
     while(armActuator.get() - 0.427 > 0.015 && armExtensionPotentiometer.get() - 0.69 > 0.03) {
       if(armActuator.get() - 0.44 > 0.01) {
-        armActuator.set(0 * armSpeed);
+        armActuator.set(0);
       }
       if(armExtensionPotentiometer.get() - 0.7 > 0.02) {
-        armExtension.set(0 * armSpeed);
+        armExtension.set(0);
       }
 
       try {
-        Thread.sleep(25);
+        Thread.sleep(50);
       } catch(InterruptedException e) {
 
       }
@@ -340,7 +342,7 @@ public class Robot extends TimedRobot {
 
       }
 
-      teeterBalance(14.5);
+      teeterBalance(14.75);
     }
   }
 
@@ -354,7 +356,7 @@ public class Robot extends TimedRobot {
   @Override
   public void teleopInit() {
     PneumaticsCompressor.enableDigital();
-    PneumaticsCompressor.enableAnalog(100, 120);
+    //PneumaticsCompressor.enableAnalog(100, 120);
     SmartDashboard.putString("DRIVE CONTROL", "ON");
     SmartDashboard.putString("ARM CONTROL", "ON");
     Gyro.reset();
@@ -363,14 +365,13 @@ public class Robot extends TimedRobot {
   /** This function is called periodically during operator control. */
   @Override
   public void teleopPeriodic() {
-    /*if(SmartDashboard.getBoolean("Auto Balance", false)) {
+    if(SmartDashboard.getBoolean("Auto Balance", false)) {
       teeterBalance(Timer.getFPGATimestamp() - autoStart + 15);
-    }*/
+    }
 
     //disable(no movement and brakes) and enable(movement and maybe doesnt brake)
     if (ps1.getPSButtonPressed()) {
-      //stopped1 = !stopped1;
-      teeterBalance(Timer.getFPGATimestamp() - autoStart + 10);
+      stopped1 = !stopped1;
     }
 
     if (ps2.getPSButtonPressed()) {
@@ -430,9 +431,11 @@ public class Robot extends TimedRobot {
     //highest arm angle is 0.442
     //lowest is 
     if (!stopped2) {
-      if (ps2.getRightY() < -0.5) {
-        armActuator.set(1);
-      } else if (ps2.getRightY() > 0.5) {
+      if (ps2.getRightY() < -0.5 /*&& armPotentiometer.get() < 0.0*/) {
+        if(!(armExtensionPotentiometer.get() > 0.0 && armPotentiometer.get() < 0.0)) {
+          armActuator.set(1);
+        }
+      } else if (ps2.getRightY() > 0.5 /*&& armPotentiometer.get() > 0.0 */) {
         armActuator.set(-1);
       } else {
         armActuator.set(0);
