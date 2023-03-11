@@ -40,6 +40,7 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 //Controller
 import edu.wpi.first.wpilibj.PS4Controller;
 
+
 public class Robot extends TimedRobot {
 
   DecimalFormat fmt = new DecimalFormat("#.00");
@@ -90,11 +91,18 @@ public class Robot extends TimedRobot {
 
   //Arm threads
   Thread armAngleThread;
+  double lowestTargetAngle = 0.0;
   double targetArmAngle = 0.0;
-  Thread armExtensionThread;
-  double targetExtensionLength = 0.0;
+  double highestTargetAngle = 0.0;
   boolean runArm = false;
+  Thread armExtensionThread;
+  double lowestTargetExtension = 0.0;
+  double targetExtensionLength = 0.0;
+  double highestTargetExtension = 0.0;
   boolean extendArm = false;
+  //Values between 0-2, where 0 is full closed, 1 is mid closed, and 2 is full open
+  int gripperState = 1;
+  int setPointIndex = 0;
 
   //Controller
   PS4Controller ps1 = new PS4Controller(0);
@@ -177,9 +185,11 @@ public class Robot extends TimedRobot {
     bottomCamera.setResolution(360, 360);
     topCamera.setResolution(360, 360);
 
-    SmartDashboard.setNetworkTableInstance(NetworkTableInstance.getDefault());
+    NetworkTableInstance inst = NetworkTableInstance.getDefault();
+    inst.startClient4("team3692-frc2023");
+    inst.setServerTeam(3692, NetworkTableInstance.kDefaultPort4);
+    SmartDashboard.setNetworkTableInstance(inst);
     // add a thing on the dashboard to turn off auto if needed
-    // SmartDashboard.put
     SmartDashboard.putBoolean("Go For Auto", true);
     goForAuto = SmartDashboard.getBoolean("Go For Auto", true);
     SmartDashboard.putString("DRIVE CONTROL", "OFF");
@@ -189,7 +199,7 @@ public class Robot extends TimedRobot {
     SmartDashboard.putNumber("Yaw", Gyro.getYaw());
     SmartDashboard.putNumber("Roll", Gyro.getRoll());
     SmartDashboard.putNumber("Pitch", Gyro.getPitch());
-    SmartDashboard.putNumber("arm potentiometer", armPotentiometer.get());
+    SmartDashboard.putNumber("arm encoder", armPotentiometer.get());
     SmartDashboard.putNumber("arm extension", armExtensionPotentiometer.get());
     SmartDashboard.putNumber("Position X", Gyro.getDisplacementX());
     SmartDashboard.putNumber("Position Y", Gyro.getDisplacementY());
@@ -202,7 +212,6 @@ public class Robot extends TimedRobot {
     SmartDashboard.putNumber("Accel X", Gyro.getWorldLinearAccelX());
     SmartDashboard.putNumber("Accel Y", Gyro.getWorldLinearAccelY());
     SmartDashboard.putNumber("Accel Z", Gyro.getWorldLinearAccelZ());
-    SmartDashboard.putBoolean("Test", false);
     SmartDashboard.putNumber("Arm Extension", 0.0);
     SmartDashboard.putNumber("Arm Actuator", 0.0);
     SmartDashboard.putBoolean("Enable Digital", false);
@@ -214,23 +223,28 @@ public class Robot extends TimedRobot {
 
     armAngleThread = new Thread(() -> {
       while(true) {
-        while(Math.abs(armPotentiometer.get() - targetArmAngle) > Constants.armAngleTolerance && runArm) {
-          if(armPotentiometer.get() < targetArmAngle) {
-            armActuator.set(-1);
-          } else {
+        while(runArm) {
+          double aP = armPotentiometer.get();
+
+          if(aP < lowestTargetAngle) {
             armActuator.set(1);
+          } else if(aP > highestTargetAngle) {
+            armActuator.set(-1);
+          } else if(aP < targetArmAngle) {
+            armActuator.set(-0.5);
+          } else if(aP > targetArmAngle) {
+            armActuator.set(-0.5);
+          } else {
+            armActuator.set(0);
           }
-  
+
           try {
             Thread.sleep(100);
           } catch(InterruptedException e) {
-            
+
           }
         }
-  
-        armActuator.set(0);
-        runArm = false;
-  
+
         try {
           Thread.sleep(500);
         } catch(InterruptedException e) {
@@ -244,23 +258,28 @@ public class Robot extends TimedRobot {
 
     armExtensionThread = new Thread(() -> {
       while(true) {
-        while(Math.abs(armExtension.get() - targetExtensionLength) > Constants.armLengthTolerance && extendArm) {
-          if(armExtension.get() < targetExtensionLength) {
-            armExtension.set(-1);
-          } else {
+        while(extendArm) {
+          double aP = armExtensionPotentiometer.get();
+
+          if(aP < lowestTargetExtension) {
             armExtension.set(1);
+          } else if(aP > highestTargetExtension) {
+            armExtension.set(-1);
+          } else if(aP < targetExtensionLength) {
+            armExtension.set(0.5);
+          } else if(aP > targetExtensionLength) {
+            armExtension.set(-0.5);
+          } else {
+            armExtension.set(-0.1);
           }
-  
+          
           try {
             Thread.sleep(100);
           } catch(InterruptedException e) {
-            
+
           }
         }
-  
-        armExtension.set(0);
-        extendArm = false;
-  
+
         try {
           Thread.sleep(500);
         } catch(InterruptedException e) {
@@ -369,6 +388,8 @@ public class Robot extends TimedRobot {
       teeterBalance(Timer.getFPGATimestamp() - autoStart + 15);
     }
 
+    setPointIndex = -1;
+
     //disable(no movement and brakes) and enable(movement and maybe doesnt brake)
     if (ps1.getPSButtonPressed()) {
       stopped1 = !stopped1;
@@ -384,6 +405,23 @@ public class Robot extends TimedRobot {
 
     // PS4
     if (!stopped1) {
+      switch(ps1.getPOV()) {
+        case 0:
+          //Transport cone
+          setPointIndex = 1;
+        case 90:
+          //Place cone low
+          setPointIndex = 2;
+        case 180:
+          //Place cone mid
+          setPointIndex = 3;
+        case 270:
+          //Place cone high
+          setPointIndex = 4;
+        default:
+          gripperState = 0;
+      }
+
       if(ps1.getTriangleButtonReleased()){
         fast = !fast;
       }
@@ -431,23 +469,65 @@ public class Robot extends TimedRobot {
     //highest arm angle is 0.442
     //lowest is 
     if (!stopped2) {
+      switch(ps2.getPOV()) {
+        case 0:
+          //Transport cube
+          setPointIndex = 5;
+        case 90:
+          //Place cube low
+          setPointIndex = 6;
+        case 180:
+          //Place cube mid
+          setPointIndex = 7;
+        case 270:
+          //Place cube high
+          setPointIndex = 8;
+        default:
+          gripperState = 1;
+      }
+
+      if(ps2.getL1ButtonPressed()) {
+        //Pick cone floor
+        setPointIndex = 9;
+        gripperState = 1;
+      } else if(ps2.getL2ButtonPressed()) {
+        //Pick cone shelf
+        setPointIndex = 10;
+        gripperState = 1;
+      } else if(ps2.getR1ButtonPressed()) {
+        //Pick cube floor
+        setPointIndex = 11;
+        gripperState = 2;
+      } else if(ps2.getR2ButtonPressed()) {
+        //Pick cube shelf
+        setPointIndex = 12;
+        gripperState = 2;
+      } else if(ps2.getShareButtonPressed()) {
+        //Robot home
+        setPointIndex = 0;
+        gripperState = 1;
+      } else if (ps2.getOptionsButtonPressed()) {
+        //Stop auto arm processes
+        endArmAngle();
+        endArmExtension();
+      }
+
       if (ps2.getRightY() < -0.5 /*&& armPotentiometer.get() < 0.0*/) {
         if(!(armExtensionPotentiometer.get() > 0.0 && armPotentiometer.get() < 0.0)) {
-          armActuator.set(1);
+          armActuator.set(-1 * ps2.getRightY());
         }
       } else if (ps2.getRightY() > 0.5 /*&& armPotentiometer.get() > 0.0 */) {
-        armActuator.set(-1);
+        armActuator.set(-1 * ps2.getRightY());
       } else {
-        armActuator.set(0);
+        armActuator.set(0.05);
       }
 
       if (ps2.getLeftY() < -0.5 /*&& armExtensionPotentiometer.get() < 0.72*/) {
-        armExtension.set(1);
+        armExtension.set(-1 * ps2.getLeftY());
       } else if (ps2.getLeftY() > 0.5 /*&& armExtensionPotentiometer.get() > 0.05*/) {
-        armExtension.set(-1);
+        armExtension.set(-1 * ps2.getLeftY());
       } else {
-        //armExtension.set(0.05 * armSpeed);
-        armExtension.set(0);
+        armExtension.set(-0.10);
       }
 
       //open is circle
@@ -479,11 +559,17 @@ public class Robot extends TimedRobot {
       SmartDashboard.putString("ARM CONTROL", "OFF");
     } 
 
+    if(setPointIndex != -1) {
+      setArmAngle(Constants.elevatorLows[setPointIndex], Constants.elevatorTargets[setPointIndex], Constants.elevatorHighs[setPointIndex]);
+      setArmExtension(Constants.elevatorLows[setPointIndex], Constants.elevatorTargets[setPointIndex], Constants.elevatorHighs[setPointIndex]);
+      changeGripper(gripperState);
+    }
+
     //Reading measurements
     SmartDashboard.putNumber("Yaw", Gyro.getYaw());
     SmartDashboard.putNumber("Roll", Gyro.getRoll());
     SmartDashboard.putNumber("Pitch", Gyro.getPitch());
-    SmartDashboard.putNumber("arm potentiometer", armPotentiometer.get());
+    SmartDashboard.putNumber("arm encoder", armPotentiometer.get());
     SmartDashboard.putNumber("arm extension", armExtensionPotentiometer.get());
     SmartDashboard.putNumber("Position X", Gyro.getDisplacementX());
     SmartDashboard.putNumber("Position Y", Gyro.getDisplacementY());
@@ -527,40 +613,6 @@ public class Robot extends TimedRobot {
     clawSolenoid2.set(DoubleSolenoid.Value.kOff);
     SmartDashboard.putString("DRIVE CONTROL", "OFF");
     SmartDashboard.putString("ARM CONTROL", "OFF");
-  }
-
-  public void scoreConeTop() {
-    targetArmAngle = Constants.topConeAngle;
-    targetExtensionLength = Constants.topArmExtention;
-
-    armAngleThread.start();
-    armExtensionThread.start();
-
-    clawSolenoid1.set(DoubleSolenoid.Value.kReverse);
-    clawSolenoid2.set(DoubleSolenoid.Value.kReverse);
-  }
-
-  public void scoreCubeTop() {
-    //Code for scoring a cube
-  }
-
-  public void scoreCone() {
-    //Code for scoring a cube
-  }
-
-  public void scoreCubeBot() {
-    //Code for scoring a cube
-  }
-
-  public void grabCone() {
-    //I'm Kevin and I'm difficult
-  }
-  public void grabCube() {
-    //Oh boohoo I'm going to cry
-  }
-
-  public void balanceOnTeeter() {
-
   }
 
   //Recommended increment value of 0.025 with a sleep of 25
@@ -654,5 +706,36 @@ public class Robot extends TimedRobot {
       driveLeftB.follow(driveLeftA);
       driveRightA.set(0);
       driveRightB.follow(driveRightA);
+    }
+
+    public void setArmAngle(double low, double target, double high) {
+      lowestTargetAngle = low;
+      targetArmAngle = target;
+      highestTargetAngle = high;
+      runArm = true;
+    }
+    public void endArmAngle() {
+      runArm = false;
+    }
+    public void setArmExtension(double low, double target, double high) {
+      lowestTargetExtension = low;
+      targetExtensionLength = target;
+      highestTargetExtension = high;
+      extendArm = true;
+    }
+    public void endArmExtension() {
+      extendArm = false;
+    }
+    public void changeGripper(int state) {
+      if(state == 0) {
+        clawSolenoid1.set(DoubleSolenoid.Value.kReverse);
+        clawSolenoid2.set(DoubleSolenoid.Value.kReverse);
+      } else if(state == 1) {
+        clawSolenoid1.set(DoubleSolenoid.Value.kForward);
+        clawSolenoid2.set(DoubleSolenoid.Value.kReverse);
+      } else if(state == 2) {
+        clawSolenoid1.set(DoubleSolenoid.Value.kForward);
+        clawSolenoid2.set(DoubleSolenoid.Value.kForward);
+      }
     }
 }
