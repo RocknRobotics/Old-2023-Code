@@ -1,0 +1,32 @@
+import java.io.*;
+import java.util.*;
+
+import edu.wpi.first.cscore.HttpCamera;
+
+public class App {
+    public static FileWriter myFileWriter;
+    public static ArrayList<String> myPaths = new ArrayList<String>();
+    public static ArrayList<File> myFiles = new ArrayList<File>();
+    public static ArrayList<HttpCamera> myCameras = new ArrayList<HttpCamera>();
+    public static void main(String[] args) {
+        //System.loadLibrary();
+
+        int port = 1181;
+        String cameraPath = "http://roborio-3692-frc.local:" + port + "/?action=stream";
+        HttpCamera aCam = new HttpCamera("Camera Name", cameraPath);
+        
+        while(!hasCam(aCam)) {
+            myPaths.add("camera" + port);
+            myFiles.add(new File(myPaths.get(myPaths.size() - 1)));
+            myCameras.add(aCam);
+
+            port++;
+            cameraPath = "http://roborio-3692-frc.local:" + port + "/?action=stream";
+            aCam = new HttpCamera("Camera Name", cameraPath);
+        }
+    }
+
+    public static boolean hasCam(HttpCamera aCam) {
+        return aCam.getHttpCameraKind() == HttpCamera.HttpCameraKind.kUnknown;
+    }
+}
